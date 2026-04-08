@@ -1,0 +1,4 @@
+makrophage_env/
+*.tif
+.ipynb_checkpoints/
+__pycache__/

@@ -1,4 +1,5 @@
 makrophage_env/
 *.tif
+*.zip
 .ipynb_checkpoints/
 __pycache__/

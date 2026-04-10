@@ -6,6 +6,10 @@ RUN apt-get update && apt-get install -y \
     libgl1 \
     libglib2.0-0 \
     build-essential \
+    pandoc \
+    texlive-xetex \
+    texlive-fonts-recommended \
+    texlive-plain-generic \
     && rm -rf /var/lib/apt/lists/*
 
 # Set our working directory inside the container

@@ -1,6 +1,10 @@
-numpy<2.0.0
 jupyterlab
-stardist
-scikit-image
 matplotlib
+numpy<2.0.0
+pandas
+scikit-image
+scipy
+seaborn
+stardist
+statannotations
 tifffile

@@ -8,6 +8,7 @@ import pandas as pd
 import seaborn as sns
 
 from .config import BatchAnalysis, DEFAULT_SEABORN_THEME, default_condition_display_label
+from .morphology_processing import prepare_morphology_scatter_points
 from .tables import (
     build_morphology_fold_change_table,
     build_morphology_summary_table,
@@ -160,8 +161,6 @@ def plot_area_intensity_scatter(
     show_donor_style: bool = True,
     split_by_donor: bool = False,
 ) -> pd.DataFrame:
-    if max_points_per_group is not None and max_points_per_group < 1:
-        raise ValueError("max_points_per_group must be at least 1 or None")
     if not 0 < intensity_upper_percentile <= 100:
         raise ValueError("intensity_upper_percentile must be between 0 and 100")
     if not 0 < area_upper_percentile <= 100:
@@ -170,17 +169,14 @@ def plot_area_intensity_scatter(
     if morphology_df.empty:
         raise ValueError(f"No valid morphology data available for {antibody}")
     summary_df = build_morphology_summary_table(analysis, antibody=antibody, donors=donors, conditions=conditions)
-    rng = np.random.default_rng(random_seed)
-    sampled_frames = []
-    for _, group in morphology_df.groupby(["condition", "donor"], observed=True):
-        if max_points_per_group is not None and len(group) > max_points_per_group:
-            sampled_frames.append(group.iloc[rng.choice(len(group), size=max_points_per_group, replace=False)])
-        else:
-            sampled_frames.append(group)
-    plot_df = pd.concat(sampled_frames, ignore_index=True)
-    intensity_max = float(np.percentile(plot_df["intensity"], intensity_upper_percentile))
-    area_max = float(np.percentile(plot_df["area"], area_upper_percentile))
-    plot_df = plot_df.loc[(plot_df["intensity"] <= intensity_max) & (plot_df["area"] <= area_max)].copy()
+    plot_df = prepare_morphology_scatter_points(
+        morphology_df,
+        max_points_per_group=max_points_per_group,
+        random_seed=random_seed,
+        x_column="intensity",
+        x_upper_percentile=intensity_upper_percentile,
+        area_upper_percentile=area_upper_percentile,
+    )
     if plot_df.empty:
         raise ValueError("No morphology points remain after display percentile filtering")
 
@@ -242,8 +238,6 @@ def plot_morphology_scatter(
     x_upper_percentile: float = 99.0,
     area_upper_percentile: float = 99.0,
 ) -> pd.DataFrame:
-    if max_points_per_group < 1:
-        raise ValueError("max_points_per_group must be at least 1")
     if not 0 < x_upper_percentile <= 100:
         raise ValueError("x_upper_percentile must be between 0 and 100")
     if not 0 < area_upper_percentile <= 100:
@@ -251,17 +245,14 @@ def plot_morphology_scatter(
     morphology_df = build_morphology_table(analysis, antibody=antibody, donors=donors, conditions=conditions)
     if morphology_df.empty:
         raise ValueError(f"No valid morphology data available for {antibody}")
-    rng = np.random.default_rng(random_seed)
-    sampled_frames = []
-    for _, group in morphology_df.groupby(["condition", "donor"], observed=True):
-        if len(group) > max_points_per_group:
-            sampled_frames.append(group.iloc[rng.choice(len(group), size=max_points_per_group, replace=False)])
-        else:
-            sampled_frames.append(group)
-    plot_df = pd.concat(sampled_frames, ignore_index=True)
-    x_max = float(np.percentile(plot_df["intensity"], x_upper_percentile))
-    area_max = float(np.percentile(plot_df["area"], area_upper_percentile))
-    plot_df = plot_df.loc[(plot_df["intensity"] <= x_max) & (plot_df["area"] <= area_max)].copy()
+    plot_df = prepare_morphology_scatter_points(
+        morphology_df,
+        max_points_per_group=max_points_per_group,
+        random_seed=random_seed,
+        x_column="intensity",
+        x_upper_percentile=x_upper_percentile,
+        area_upper_percentile=area_upper_percentile,
+    )
     if plot_df.empty:
         raise ValueError("No morphology points remain after display percentile filtering")
 

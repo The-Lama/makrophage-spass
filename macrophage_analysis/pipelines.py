@@ -136,9 +136,10 @@ def _run_batch_analysis(
         results[(request.antibody, request.condition, request.donor)] = MeasurementResult(
             path=request.path,
             cell_count=cell_count,
-            mean_intensities=result_intensities,
-            overall_mean=overall_mean,
-            overall_median=overall_median,
+            raw_mean_intensities=mean_intensities,
+            measurement_values=result_intensities,
+            measurement_mean=overall_mean,
+            measurement_median=overall_median,
             measurement_scale=measurement_scale,
             areas=areas,
             eccentricities=eccentricities,

@@ -385,7 +385,7 @@ def plot_condition_brightness_debug(
                 raise KeyError(
                     f"Missing analysis result for antibody={antibody}, condition={condition}, donor={donor}"
                 ) from exc
-            values = np.asarray(measurement.mean_intensities, dtype=float)
+            values = np.asarray(measurement.measurement_values, dtype=float)
             values = values[np.isfinite(values)]
             if values.size:
                 antibody_values.append(values)
@@ -435,7 +435,7 @@ def plot_condition_brightness_debug(
                 image_title = f"{image_title}\nbackground={measurement.background_intensity:.2f}"
             image_ax.set_title(image_title, fontsize=7)
 
-            values = np.asarray(measurement.mean_intensities, dtype=float)
+            values = np.asarray(measurement.measurement_values, dtype=float)
             values = values[np.isfinite(values)]
             histogram_ax = axes[histogram_row, column_index]
             lower, upper = histogram_limits[antibody]

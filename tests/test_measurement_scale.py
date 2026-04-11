@@ -5,6 +5,7 @@ import unittest
 from macrophage_analysis.config import (
     MEASUREMENT_SCALE_BACKGROUND_RATIO,
     MEASUREMENT_SCALE_RAW_INTENSITY,
+    MeasurementResult,
     default_measurement_axis_label,
     default_measurement_summary_label,
     default_measurement_title_label,
@@ -37,6 +38,24 @@ class MeasurementScaleTests(unittest.TestCase):
         )
         with self.assertRaises(ValueError):
             validate_measurement_scale("something_else")
+
+    def test_measurement_result_keeps_raw_and_transformed_values_separate(self) -> None:
+        measurement = MeasurementResult(
+            path="example.tif",  # type: ignore[arg-type]
+            cell_count=2,
+            raw_mean_intensities=[10.0, 20.0],  # type: ignore[list-item]
+            measurement_values=[2.0, 4.0],  # type: ignore[list-item]
+            measurement_mean=3.0,
+            measurement_median=3.0,
+            measurement_scale=MEASUREMENT_SCALE_BACKGROUND_RATIO,
+            background_intensity=5.0,
+            background_percentile=50.0,
+        )
+        self.assertEqual(measurement.raw_mean_intensities, [10.0, 20.0])
+        self.assertEqual(measurement.measurement_values, [2.0, 4.0])
+        self.assertEqual(measurement.mean_intensities, [2.0, 4.0])
+        self.assertEqual(measurement.overall_mean, 3.0)
+        self.assertEqual(measurement.overall_median, 3.0)
 
 
 if __name__ == "__main__":

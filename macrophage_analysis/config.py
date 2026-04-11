@@ -78,14 +78,27 @@ class ConditionComparison:
 class MeasurementResult:
     path: Path
     cell_count: int
-    mean_intensities: "np.ndarray"
-    overall_mean: float
-    overall_median: float
+    raw_mean_intensities: "np.ndarray"
+    measurement_values: "np.ndarray"
+    measurement_mean: float
+    measurement_median: float
     measurement_scale: str = MEASUREMENT_SCALE_RAW_INTENSITY
     areas: "np.ndarray | None" = None
     eccentricities: "np.ndarray | None" = None
     background_intensity: float | None = None
     background_percentile: float | None = None
+
+    @property
+    def mean_intensities(self) -> "np.ndarray":
+        return self.measurement_values
+
+    @property
+    def overall_mean(self) -> float:
+        return self.measurement_mean
+
+    @property
+    def overall_median(self) -> float:
+        return self.measurement_median
 
 
 @dataclass

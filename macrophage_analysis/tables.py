@@ -177,7 +177,7 @@ def build_morphology_table(
                     "This BatchAnalysis does not include morphology metrics. "
                     "Rerun extract_single_cell_fluorescence after updating the macrophage_analysis package."
                 )
-            intensities = np.asarray(measurement.mean_intensities, dtype=float)
+            intensities = np.asarray(measurement.measurement_values, dtype=float)
             areas = np.asarray(measurement.areas, dtype=float)
             eccentricities = np.asarray(measurement.eccentricities, dtype=float)
             if not (intensities.size == areas.size == eccentricities.size):

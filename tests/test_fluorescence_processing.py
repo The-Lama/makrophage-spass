@@ -33,16 +33,18 @@ class FluorescenceProcessingTests(unittest.TestCase):
                 ("CD40", "M0", "D45"): MeasurementResult(
                     path="m0.tif",  # type: ignore[arg-type]
                     cell_count=4,
-                    mean_intensities=np.array([0.0, 1.0, np.nan, 4.0]),
-                    overall_mean=1.6666666667,
-                    overall_median=1.0,
+                    raw_mean_intensities=np.array([0.0, 1.0, np.nan, 4.0]),
+                    measurement_values=np.array([0.0, 1.0, np.nan, 4.0]),
+                    measurement_mean=1.6666666667,
+                    measurement_median=1.0,
                 ),
                 ("CD40", "B68KCP2", "D45"): MeasurementResult(
                     path="treated.tif",  # type: ignore[arg-type]
                     cell_count=3,
-                    mean_intensities=np.array([2.0, 6.0, 8.0]),
-                    overall_mean=16.0 / 3.0,
-                    overall_median=6.0,
+                    raw_mean_intensities=np.array([2.0, 6.0, 8.0]),
+                    measurement_values=np.array([2.0, 6.0, 8.0]),
+                    measurement_mean=16.0 / 3.0,
+                    measurement_median=6.0,
                 ),
             },
         )

@@ -35,7 +35,7 @@ def group_plot_values(
         for donor in analysis.donors:
             measurement = analysis.results[(antibody, condition, donor)]
             grouped_values[(condition, donor)] = prepare_plot_values(
-                measurement.mean_intensities,
+                measurement.measurement_values,
                 plot_log_scale=plot_log_scale,
                 min_positive_intensity=min_positive_intensity,
             )

@@ -8,7 +8,7 @@ from pathlib import Path
 import numpy as np
 import tifffile as tiff
 from csbdeep.utils import normalize
-from skimage.measure import regionprops
+from skimage.measure import regionprops_table
 from stardist.models import StarDist2D
 
 from .config import DEFAULT_DATA_ROOT
@@ -74,11 +74,16 @@ def extract_cell_measurements(
     image: np.ndarray,
     labels: np.ndarray,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-    props = regionprops(labels, intensity_image=image)
-    mean_intensities = np.array([cell.intensity_mean for cell in props], dtype=float)
-    areas = np.array([cell.area for cell in props], dtype=float)
-    eccentricities = np.array([cell.eccentricity for cell in props], dtype=float)
-    return mean_intensities, areas, eccentricities
+    props = regionprops_table(
+        labels,
+        intensity_image=image,
+        properties=("intensity_mean", "area", "eccentricity"),
+    )
+    return (
+        np.asarray(props["intensity_mean"], dtype=float),
+        np.asarray(props["area"], dtype=float),
+        np.asarray(props["eccentricity"], dtype=float),
+    )
 
 
 def summarize_intensities(mean_intensities: np.ndarray) -> tuple[int, float, float]:

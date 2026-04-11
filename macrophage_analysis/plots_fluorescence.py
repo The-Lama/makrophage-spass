@@ -12,6 +12,8 @@ from stardist.plot import render_label
 from .config import (
     BatchAnalysis,
     ConditionComparison,
+    DEFAULT_ANTIBODY_ORDER,
+    DEFAULT_BASELINE_CONDITION,
     DEFAULT_DONOR_COLORS,
     DEFAULT_DONOR_DISPLAY_LABELS,
     DEFAULT_SEABORN_THEME,
@@ -19,7 +21,7 @@ from .config import (
     default_condition_display_label,
 )
 from .core import load_grayscale_tif
-from .tables import _build_plot_data, build_stat_summary_table
+from .tables import build_stat_summary_table
 
 
 def _wrap_filename(filename: str, *, width: int = 36) -> str:
@@ -41,6 +43,148 @@ def _deduplicate_legend(ax: plt.Axes, donors: Iterable[str]) -> None:
         legend = ax.get_legend()
         if legend is not None:
             legend.remove()
+
+
+def _prepare_plot_values(
+    values: np.ndarray,
+    *,
+    plot_log_scale: bool,
+    min_positive_intensity: float | None,
+) -> np.ndarray:
+    plot_values = np.asarray(values, dtype=float)
+    plot_values = plot_values[np.isfinite(plot_values)]
+    if plot_log_scale:
+        plot_values = plot_values[plot_values > 0]
+        if min_positive_intensity is not None:
+            plot_values = np.clip(plot_values, min_positive_intensity, None)
+    return plot_values
+
+
+def _build_plot_data(
+    analysis: BatchAnalysis,
+    antibody: str,
+    *,
+    plot_log_scale: bool,
+    min_positive_intensity: float | None,
+    max_strip_points: int,
+    random_seed: int,
+) -> tuple[pd.DataFrame, pd.DataFrame, dict[tuple[str, str], np.ndarray]]:
+    rng = np.random.default_rng(random_seed)
+    full_frames: list[pd.DataFrame] = []
+    sample_frames: list[pd.DataFrame] = []
+    grouped_values: dict[tuple[str, str], np.ndarray] = {}
+
+    for condition in analysis.conditions:
+        for donor in analysis.donors:
+            measurement = analysis.results[(antibody, condition, donor)]
+            plot_values = _prepare_plot_values(
+                measurement.mean_intensities,
+                plot_log_scale=plot_log_scale,
+                min_positive_intensity=min_positive_intensity,
+            )
+            grouped_values[(condition, donor)] = plot_values
+            if plot_values.size == 0:
+                continue
+
+            full_frames.append(
+                pd.DataFrame(
+                    {
+                        "antibody": antibody,
+                        "condition": condition,
+                        "donor": donor,
+                        "intensity": plot_values,
+                    }
+                )
+            )
+            sampled_values = plot_values
+            if max_strip_points == 0:
+                sampled_values = sampled_values[:0]
+            elif sampled_values.size > max_strip_points:
+                sampled_values = rng.choice(sampled_values, size=max_strip_points, replace=False)
+            sample_frames.append(
+                pd.DataFrame(
+                    {
+                        "antibody": antibody,
+                        "condition": condition,
+                        "donor": donor,
+                        "intensity": sampled_values,
+                    }
+                )
+            )
+
+    full_df = pd.concat(full_frames, ignore_index=True) if full_frames else pd.DataFrame()
+    sample_df = pd.concat(sample_frames, ignore_index=True) if sample_frames else pd.DataFrame()
+    for frame in (full_df, sample_df):
+        if frame.empty:
+            continue
+        frame["condition"] = pd.Categorical(frame["condition"], categories=analysis.conditions, ordered=True)
+        frame["donor"] = pd.Categorical(frame["donor"], categories=analysis.donors, ordered=True)
+    return full_df, sample_df, grouped_values
+
+
+def display_stat_summary_tables(
+    stat_table: pd.DataFrame,
+    *,
+    antibody_order: Iterable[str] = DEFAULT_ANTIBODY_ORDER,
+    baseline_condition: str = DEFAULT_BASELINE_CONDITION,
+    condition_labels: Mapping[str, str] | None = None,
+    donor_labels: Mapping[str, str] | None = None,
+) -> None:
+    resolved_condition_labels = {
+        condition: condition_labels[condition]
+        if condition_labels is not None and condition in condition_labels
+        else default_condition_display_label(condition)
+        for condition in stat_table["condition"].astype(str).unique()
+    }
+    resolved_donor_labels = {
+        donor: donor_labels[donor]
+        if donor_labels is not None and donor in donor_labels
+        else DEFAULT_DONOR_DISPLAY_LABELS.get(donor, donor)
+        for donor in stat_table["donor"].astype(str).unique()
+    }
+
+    try:
+        from IPython.display import Markdown, display
+    except ImportError:
+        Markdown = None
+        display = None
+
+    display_columns = ["condition", "donor", "cell_count", "median_intensity", "mean_intensity", "p_value", "stars"]
+    renamed_columns = {
+        "condition": "Condition",
+        "donor": "Donor",
+        "cell_count": "Cells",
+        "median_intensity": "Median",
+        "mean_intensity": "Mean",
+        "p_value": "p-value",
+        "stars": "Sig.",
+    }
+
+    for antibody in antibody_order:
+        antibody_stats = stat_table.loc[stat_table["antibody"] == antibody, display_columns].copy()
+        if antibody_stats.empty:
+            continue
+        baseline_mask = antibody_stats["condition"].astype(str).eq(baseline_condition)
+        antibody_stats["condition"] = antibody_stats["condition"].astype(str).map(
+            lambda condition: resolved_condition_labels.get(condition, condition)
+        )
+        antibody_stats["donor"] = antibody_stats["donor"].astype(str).map(
+            lambda donor: resolved_donor_labels.get(donor, donor)
+        )
+        antibody_stats["median_intensity"] = antibody_stats["median_intensity"].map(lambda value: f"{value:.2f}")
+        antibody_stats["mean_intensity"] = antibody_stats["mean_intensity"].map(lambda value: f"{value:.2f}")
+        antibody_stats["p_value"] = np.where(
+            baseline_mask,
+            "baseline",
+            antibody_stats["p_value"].map(lambda value: f"{value:.3g}"),
+        )
+        formatted_stats = antibody_stats.rename(columns=renamed_columns)
+        if Markdown is not None and display is not None:
+            display(Markdown(f"**{antibody}**"))
+            display(Markdown(f"```text\n{formatted_stats.to_string(index=False)}\n```"))
+        else:
+            print(f"\n{antibody}")
+            print(formatted_stats.to_string(index=False))
 
 
 def plot_condition_comparison(comparison: ConditionComparison) -> None:

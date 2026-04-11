@@ -12,6 +12,7 @@ from skimage.measure import regionprops_table
 from stardist.models import StarDist2D
 
 from .config import DEFAULT_DATA_ROOT
+from .io.catalog import build_image_catalog
 
 
 @lru_cache(maxsize=1)
@@ -26,17 +27,13 @@ def find_image_path(
     channel: str,
     data_root: str | Path = DEFAULT_DATA_ROOT,
 ) -> Path:
-    condition_dir = Path(data_root) / donor / condition
-    matches = sorted(condition_dir.glob(f"{donor}_{condition}_{marker_prefix} {channel}.tif*"))
-    if not matches:
-        raise FileNotFoundError(
-            f"Missing expected image in {condition_dir} for {marker_prefix} {channel}"
-        )
-    if len(matches) > 1:
-        raise ValueError(
-            f"Found multiple matching images for {donor} / {condition} / {marker_prefix} / {channel}: {matches}"
-        )
-    return matches[0]
+    catalog = build_image_catalog(data_root=data_root)
+    return catalog.find_path(
+        donor=donor,
+        condition=condition,
+        marker_prefix=marker_prefix,
+        channel=channel,
+    )
 
 
 def load_grayscale_tif(image_path: str | Path) -> np.ndarray:

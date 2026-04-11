@@ -4,8 +4,6 @@ import re
 from dataclasses import dataclass
 from pathlib import Path
 
-import numpy as np
-
 DEFAULT_DATA_ROOT = Path("raw_data")
 DEFAULT_BASELINE_CONDITION = "M0"
 DEFAULT_DONORS = ("D45", "D47")
@@ -54,15 +52,15 @@ DEFAULT_ANTIBODY_ORDER = tuple(DEFAULT_ANTIBODY_SPECS.keys())
 @dataclass
 class ComparisonDonorResult:
     path: Path
-    image: np.ndarray
-    labels: np.ndarray
+    image: "np.ndarray"
+    labels: "np.ndarray"
     details: dict
-    mean_intensities: np.ndarray
+    mean_intensities: "np.ndarray"
     cell_count: int
     overall_mean: float
     overall_median: float
-    areas: np.ndarray | None = None
-    eccentricities: np.ndarray | None = None
+    areas: "np.ndarray | None" = None
+    eccentricities: "np.ndarray | None" = None
 
 
 @dataclass
@@ -78,11 +76,11 @@ class ConditionComparison:
 class MeasurementResult:
     path: Path
     cell_count: int
-    mean_intensities: np.ndarray
+    mean_intensities: "np.ndarray"
     overall_mean: float
     overall_median: float
-    areas: np.ndarray | None = None
-    eccentricities: np.ndarray | None = None
+    areas: "np.ndarray | None" = None
+    eccentricities: "np.ndarray | None" = None
     background_intensity: float | None = None
     background_percentile: float | None = None
 

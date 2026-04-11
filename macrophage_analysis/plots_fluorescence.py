@@ -18,6 +18,9 @@ from .config import (
     DEFAULT_DONOR_DISPLAY_LABELS,
     DEFAULT_SEABORN_THEME,
     MeasurementResult,
+    default_measurement_axis_label,
+    default_measurement_summary_label,
+    default_measurement_title_label,
     default_condition_display_label,
 )
 from .core import load_grayscale_tif
@@ -253,11 +256,15 @@ def plot_violins_with_stats(
     min_positive_intensity: float | None = None,
     upper_display_percentile: float = 99.5,
     random_seed: int = 7,
-    y_label: str = "Per-cell fluorescence intensity",
-    title_value_label: str = "single-cell fluorescence",
+    y_label: str | None = None,
+    title_value_label: str | None = None,
 ) -> pd.DataFrame:
     sns.set_theme(**DEFAULT_SEABORN_THEME)
     palette = {donor: analysis.donor_colors[donor] for donor in analysis.donors}
+    resolved_y_label = y_label or default_measurement_axis_label(analysis.measurement_scale)
+    resolved_title_value_label = title_value_label or default_measurement_title_label(
+        analysis.measurement_scale
+    )
     stat_table = build_stat_summary_table(
         analysis,
         plot_log_scale=plot_log_scale,
@@ -319,9 +326,9 @@ def plot_violins_with_stats(
             ax.set_ylim(bottom=log_lower_bound, top=display_max * 2.2)
         else:
             ax.set_ylim(bottom=0, top=display_max * 1.15)
-        ax.set_title(f"{antibody} {title_value_label} by treatment")
+        ax.set_title(f"{antibody} {resolved_title_value_label} by treatment")
         ax.set_xlabel("Treatment")
-        ax.set_ylabel(y_label + (" (log scale)" if plot_log_scale else ""))
+        ax.set_ylabel(resolved_y_label + (" (log scale)" if plot_log_scale else ""))
         plt.setp(ax.get_xticklabels(), rotation=30, ha="right")
         ax.tick_params(axis="x", length=0)
         ax.grid(axis="y", alpha=0.25)
@@ -368,7 +375,10 @@ def plot_summary_heatmap(
         for donor in analysis.donors
     }
     baseline_label = resolved_condition_labels.get(analysis.baseline_condition, analysis.baseline_condition)
-    resolved_summary_stat_label = summary_stat_label or f"{summary_stat} single-cell intensity"
+    resolved_summary_stat_label = summary_stat_label or default_measurement_summary_label(
+        analysis.measurement_scale,
+        summary_stat=summary_stat,
+    )
 
     heatmap_matrices: dict[str, np.ndarray] = {}
     all_fold_changes: list[float] = []
@@ -463,8 +473,8 @@ def plot_condition_brightness_debug(
     image_upper_percentile: float = 99.8,
     histogram_upper_percentile: float = 99.5,
     histogram_bins: int = 40,
-    value_label: str = "Mean cell brightness",
-    figure_value_label: str = "per-cell brightness",
+    value_label: str | None = None,
+    figure_value_label: str | None = None,
     show_background: bool = False,
 ) -> None:
     if condition not in analysis.conditions:
@@ -485,6 +495,10 @@ def plot_condition_brightness_debug(
 
     sns.set_theme(**DEFAULT_SEABORN_THEME)
     condition_label = default_condition_display_label(condition)
+    resolved_value_label = value_label or default_measurement_axis_label(analysis.measurement_scale)
+    resolved_figure_value_label = figure_value_label or default_measurement_title_label(
+        analysis.measurement_scale
+    )
     histogram_limits: dict[str, tuple[float, float]] = {}
     for antibody in antibody_list:
         antibody_values = []
@@ -518,7 +532,10 @@ def plot_condition_brightness_debug(
         squeeze=False,
         constrained_layout=True,
     )
-    fig.suptitle(f"{condition_label}: source image and {figure_value_label} by marker", fontsize=14)
+    fig.suptitle(
+        f"{condition_label}: source image and {resolved_figure_value_label} by marker",
+        fontsize=14,
+    )
     for donor_index, donor in enumerate(donor_list):
         image_row = donor_index * 2
         histogram_row = image_row + 1
@@ -565,7 +582,7 @@ def plot_condition_brightness_debug(
                 f"n={measurement.cell_count}, median={measurement.overall_median:.2f}\nmean={measurement.overall_mean:.2f}",
                 fontsize=9,
             )
-            histogram_ax.set_xlabel(value_label)
+            histogram_ax.set_xlabel(resolved_value_label)
             histogram_ax.set_ylabel("Cells" if column_index == 0 else "")
             histogram_ax.tick_params(axis="x", labelrotation=30)
             histogram_ax.grid(axis="y", alpha=0.25)

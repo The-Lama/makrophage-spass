@@ -16,17 +16,19 @@ from .config import (
     DEFAULT_DATA_ROOT,
     DEFAULT_DONOR_COLORS,
     DEFAULT_STARDIST_N_TILES,
+    MEASUREMENT_SCALE_BACKGROUND_RATIO,
+    MEASUREMENT_SCALE_RAW_INTENSITY,
     MeasurementResult,
 )
 from .core import (
     divide_by_background,
     estimate_background_intensity,
     extract_cell_measurements,
-    find_image_path,
     load_grayscale_tif,
     predict_stardist_labels,
     summarize_intensities,
 )
+from .planning import build_condition_comparison_requests, build_measurement_requests
 
 
 def extract_condition_comparison(
@@ -41,15 +43,21 @@ def extract_condition_comparison(
 ) -> ConditionComparison:
     donor_list = list(donors)
     donor_results: dict[str, ComparisonDonorResult] = {}
+    requests = build_condition_comparison_requests(
+        donor_list,
+        condition,
+        marker_prefix=marker_prefix,
+        channel=channel,
+        data_root=data_root,
+    )
 
-    for donor in donor_list:
-        image_path = find_image_path(donor, condition, marker_prefix, channel, data_root=data_root)
-        image = load_grayscale_tif(image_path)
+    for request in requests:
+        image = load_grayscale_tif(request.path)
         labels, details = predict_stardist_labels(image, model_name=model_name, n_tiles=n_tiles)
         mean_intensities, areas, eccentricities = extract_cell_measurements(image, labels)
         cell_count, overall_mean, overall_median = summarize_intensities(mean_intensities)
-        donor_results[donor] = ComparisonDonorResult(
-            path=image_path,
+        donor_results[request.donor] = ComparisonDonorResult(
+            path=request.path,
             image=image,
             labels=labels,
             details=details,
@@ -89,47 +97,54 @@ def _run_batch_analysis(
     order_list = list(antibody_order)
     if baseline_condition not in condition_list:
         raise ValueError(f"baseline_condition must be one of {condition_list}")
+    measurement_scale = (
+        MEASUREMENT_SCALE_BACKGROUND_RATIO
+        if relative_to_background
+        else MEASUREMENT_SCALE_RAW_INTENSITY
+    )
+    requests = build_measurement_requests(
+        donor_list,
+        condition_list,
+        antibody_specs=antibody_specs,
+        antibody_order=order_list,
+        data_root=data_root,
+    )
 
     results: dict[tuple[str, str, str], MeasurementResult] = {}
-    for antibody in order_list:
-        spec = antibody_specs[antibody]
-        message = f"Analyzing {antibody}"
+    current_antibody = None
+    for request in requests:
+        if request.antibody != current_antibody:
+            current_antibody = request.antibody
+            message = f"Analyzing {current_antibody}"
+            if relative_to_background:
+                message += " relative to image background"
+            print(f"{message}...")
+
+        image = load_grayscale_tif(request.path)
+        labels, _ = predict_stardist_labels(image, model_name=model_name, n_tiles=n_tiles)
+        mean_intensities, areas, eccentricities = extract_cell_measurements(image, labels)
+        background_intensity = None
+        result_intensities = mean_intensities
         if relative_to_background:
-            message += " relative to image background"
-        print(f"{message}...")
-        for condition in condition_list:
-            for donor in donor_list:
-                image_path = find_image_path(
-                    donor=donor,
-                    condition=condition,
-                    marker_prefix=spec.marker_prefix,
-                    channel=spec.channel,
-                    data_root=data_root,
-                )
-                image = load_grayscale_tif(image_path)
-                labels, _ = predict_stardist_labels(image, model_name=model_name, n_tiles=n_tiles)
-                mean_intensities, areas, eccentricities = extract_cell_measurements(image, labels)
-                background_intensity = None
-                result_intensities = mean_intensities
-                if relative_to_background:
-                    background_intensity = estimate_background_intensity(
-                        image,
-                        labels,
-                        background_percentile=background_percentile,
-                    )
-                    result_intensities = divide_by_background(mean_intensities, background_intensity)
-                cell_count, overall_mean, overall_median = summarize_intensities(result_intensities)
-                results[(antibody, condition, donor)] = MeasurementResult(
-                    path=image_path,
-                    cell_count=cell_count,
-                    mean_intensities=result_intensities,
-                    overall_mean=overall_mean,
-                    overall_median=overall_median,
-                    areas=areas,
-                    eccentricities=eccentricities,
-                    background_intensity=background_intensity,
-                    background_percentile=background_percentile if relative_to_background else None,
-                )
+            background_intensity = estimate_background_intensity(
+                image,
+                labels,
+                background_percentile=background_percentile,
+            )
+            result_intensities = divide_by_background(mean_intensities, background_intensity)
+        cell_count, overall_mean, overall_median = summarize_intensities(result_intensities)
+        results[(request.antibody, request.condition, request.donor)] = MeasurementResult(
+            path=request.path,
+            cell_count=cell_count,
+            mean_intensities=result_intensities,
+            overall_mean=overall_mean,
+            overall_median=overall_median,
+            measurement_scale=measurement_scale,
+            areas=areas,
+            eccentricities=eccentricities,
+            background_intensity=background_intensity,
+            background_percentile=background_percentile if relative_to_background else None,
+        )
 
     print(f"Finished analyzing {len(results)} donor / treatment / antibody combinations.")
     return BatchAnalysis(
@@ -139,6 +154,7 @@ def _run_batch_analysis(
         antibody_order=order_list,
         antibody_specs=dict(antibody_specs),
         donor_colors=dict(donor_colors),
+        measurement_scale=measurement_scale,
         results=results,
     )
 

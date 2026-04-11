@@ -6,6 +6,8 @@ from pathlib import Path
 
 DEFAULT_DATA_ROOT = Path("raw_data")
 DEFAULT_BASELINE_CONDITION = "M0"
+MEASUREMENT_SCALE_RAW_INTENSITY = "raw_intensity"
+MEASUREMENT_SCALE_BACKGROUND_RATIO = "background_ratio"
 DEFAULT_DONORS = ("D45", "D47")
 DEFAULT_CONDITIONS = (
     "M0",
@@ -79,6 +81,7 @@ class MeasurementResult:
     mean_intensities: "np.ndarray"
     overall_mean: float
     overall_median: float
+    measurement_scale: str = MEASUREMENT_SCALE_RAW_INTENSITY
     areas: "np.ndarray | None" = None
     eccentricities: "np.ndarray | None" = None
     background_intensity: float | None = None
@@ -93,6 +96,7 @@ class BatchAnalysis:
     antibody_order: list[str]
     antibody_specs: dict[str, AntibodySpec]
     donor_colors: dict[str, str]
+    measurement_scale: str
     results: dict[tuple[str, str, str], MeasurementResult]
 
 
@@ -104,3 +108,33 @@ def default_condition_display_label(condition: str) -> str:
     label = re.sub(r"(?<=\d)(?=[A-Za-z])", " ", label)
     label = re.sub(r"(?<=[a-z])(?=[A-Z])", " ", label)
     return label
+
+
+def validate_measurement_scale(measurement_scale: str) -> str:
+    if measurement_scale not in {
+        MEASUREMENT_SCALE_RAW_INTENSITY,
+        MEASUREMENT_SCALE_BACKGROUND_RATIO,
+    }:
+        raise ValueError(f"Unsupported measurement_scale: {measurement_scale}")
+    return measurement_scale
+
+
+def default_measurement_axis_label(measurement_scale: str) -> str:
+    validate_measurement_scale(measurement_scale)
+    if measurement_scale == MEASUREMENT_SCALE_BACKGROUND_RATIO:
+        return "Cell signal / image background"
+    return "Per-cell fluorescence intensity"
+
+
+def default_measurement_title_label(measurement_scale: str) -> str:
+    validate_measurement_scale(measurement_scale)
+    if measurement_scale == MEASUREMENT_SCALE_BACKGROUND_RATIO:
+        return "signal/background ratio"
+    return "single-cell fluorescence"
+
+
+def default_measurement_summary_label(measurement_scale: str, *, summary_stat: str) -> str:
+    validate_measurement_scale(measurement_scale)
+    if measurement_scale == MEASUREMENT_SCALE_BACKGROUND_RATIO:
+        return f"{summary_stat} signal/background ratio"
+    return f"{summary_stat} single-cell intensity"

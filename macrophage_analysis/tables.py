@@ -12,43 +12,8 @@ from .config import (
     DEFAULT_DONOR_DISPLAY_LABELS,
     default_condition_display_label,
 )
+from .fluorescence_processing import group_plot_values
 from .stats import mann_whitney_u_test, pvalue_to_stars
-
-
-def _prepare_plot_values(
-    values: np.ndarray,
-    *,
-    plot_log_scale: bool,
-    min_positive_intensity: float | None,
-) -> np.ndarray:
-    plot_values = np.asarray(values, dtype=float)
-    plot_values = plot_values[np.isfinite(plot_values)]
-    if plot_log_scale:
-        plot_values = plot_values[plot_values > 0]
-        if min_positive_intensity is not None:
-            plot_values = np.clip(plot_values, min_positive_intensity, None)
-    return plot_values
-
-
-def _group_plot_values(
-    analysis: BatchAnalysis,
-    antibody: str,
-    *,
-    plot_log_scale: bool,
-    min_positive_intensity: float | None,
-) -> dict[tuple[str, str], np.ndarray]:
-    grouped_values: dict[tuple[str, str], np.ndarray] = {}
-
-    for condition in analysis.conditions:
-        for donor in analysis.donors:
-            measurement = analysis.results[(antibody, condition, donor)]
-            plot_values = _prepare_plot_values(
-                measurement.mean_intensities,
-                plot_log_scale=plot_log_scale,
-                min_positive_intensity=min_positive_intensity,
-            )
-            grouped_values[(condition, donor)] = plot_values
-    return grouped_values
 
 
 def build_stat_summary_table(
@@ -59,7 +24,7 @@ def build_stat_summary_table(
 ) -> pd.DataFrame:
     rows: list[dict[str, float | int | str]] = []
     for antibody in analysis.antibody_order:
-        grouped_values = _group_plot_values(
+        grouped_values = group_plot_values(
             analysis,
             antibody,
             plot_log_scale=plot_log_scale,
@@ -97,6 +62,73 @@ def build_stat_summary_table(
     return stat_table.sort_values(["antibody", "condition", "donor"]).reset_index(drop=True)
 
 
+def format_stat_summary_tables(
+    stat_table: pd.DataFrame,
+    *,
+    antibody_order: Iterable[str] = DEFAULT_ANTIBODY_ORDER,
+    baseline_condition: str = DEFAULT_BASELINE_CONDITION,
+    condition_labels: Mapping[str, str] | None = None,
+    donor_labels: Mapping[str, str] | None = None,
+) -> list[tuple[str, pd.DataFrame]]:
+    resolved_condition_labels = {
+        condition: condition_labels[condition]
+        if condition_labels is not None and condition in condition_labels
+        else default_condition_display_label(condition)
+        for condition in stat_table["condition"].astype(str).unique()
+    }
+    resolved_donor_labels = {
+        donor: donor_labels[donor]
+        if donor_labels is not None and donor in donor_labels
+        else DEFAULT_DONOR_DISPLAY_LABELS.get(donor, donor)
+        for donor in stat_table["donor"].astype(str).unique()
+    }
+
+    display_columns = [
+        "condition",
+        "donor",
+        "cell_count",
+        "median_intensity",
+        "mean_intensity",
+        "p_value",
+        "stars",
+    ]
+    renamed_columns = {
+        "condition": "Condition",
+        "donor": "Donor",
+        "cell_count": "Cells",
+        "median_intensity": "Median",
+        "mean_intensity": "Mean",
+        "p_value": "p-value",
+        "stars": "Sig.",
+    }
+
+    formatted_tables: list[tuple[str, pd.DataFrame]] = []
+    for antibody in antibody_order:
+        antibody_stats = stat_table.loc[stat_table["antibody"] == antibody, display_columns].copy()
+        if antibody_stats.empty:
+            continue
+        baseline_mask = antibody_stats["condition"].astype(str).eq(baseline_condition)
+        antibody_stats["condition"] = antibody_stats["condition"].astype(str).map(
+            lambda condition: resolved_condition_labels.get(condition, condition)
+        )
+        antibody_stats["donor"] = antibody_stats["donor"].astype(str).map(
+            lambda donor: resolved_donor_labels.get(donor, donor)
+        )
+        antibody_stats["median_intensity"] = antibody_stats["median_intensity"].map(
+            lambda value: f"{value:.2f}"
+        )
+        antibody_stats["mean_intensity"] = antibody_stats["mean_intensity"].map(
+            lambda value: f"{value:.2f}"
+        )
+        antibody_stats["p_value"] = np.where(
+            baseline_mask,
+            "baseline",
+            antibody_stats["p_value"].map(lambda value: f"{value:.3g}"),
+        )
+        formatted_tables.append((antibody, antibody_stats.rename(columns=renamed_columns)))
+    return formatted_tables
+
+
 def display_stat_summary_tables(
     stat_table: pd.DataFrame,
     *,
@@ -105,15 +137,26 @@ def display_stat_summary_tables(
     condition_labels: Mapping[str, str] | None = None,
     donor_labels: Mapping[str, str] | None = None,
 ) -> None:
-    from .plots_fluorescence import display_stat_summary_tables as _display_stat_summary_tables
-
-    _display_stat_summary_tables(
+    formatted_tables = format_stat_summary_tables(
         stat_table,
         antibody_order=antibody_order,
         baseline_condition=baseline_condition,
         condition_labels=condition_labels,
         donor_labels=donor_labels,
     )
+    try:
+        from IPython.display import Markdown, display
+    except ImportError:
+        Markdown = None
+        display = None
+
+    for antibody, formatted_stats in formatted_tables:
+        if Markdown is not None and display is not None:
+            display(Markdown(f"**{antibody}**"))
+            display(Markdown(f"```text\n{formatted_stats.to_string(index=False)}\n```"))
+        else:
+            print(f"\n{antibody}")
+            print(formatted_stats.to_string(index=False))
 
 
 def build_morphology_table(

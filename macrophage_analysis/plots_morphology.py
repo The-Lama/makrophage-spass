@@ -25,6 +25,10 @@ def plot_morphology_heatmap(
     baseline_condition: str | None = None,
     summary_stat: str = "median",
     per_donor: bool = False,
+    show_significance_stars: bool = True,
+    exclude_treatment: str | None = None,
+    condition_label_style: str = "short",
+    condition_label_wrap_width: int | None = None,
 ) -> pd.DataFrame:
     fold_change_df = build_morphology_fold_change_table(
         analysis,
@@ -35,8 +39,25 @@ def plot_morphology_heatmap(
         summary_stat=summary_stat,
         per_donor=per_donor,
     )
+    available_conditions = list(fold_change_df["condition"].astype(str).unique())
+    if exclude_treatment is not None:
+        if exclude_treatment not in available_conditions:
+            raise ValueError(f"exclude_treatment must be one of {available_conditions}")
+        fold_change_df = fold_change_df.loc[
+            fold_change_df["condition"].astype(str) != exclude_treatment
+        ].copy()
+    if fold_change_df.empty:
+        raise ValueError("At least one treatment must remain in the heatmap")
+    resolved_condition_label_wrap_width = (
+        22
+        if condition_label_style == "descriptive" and condition_label_wrap_width is None
+        else condition_label_wrap_width
+    )
     resolved_baseline_condition = baseline_condition or analysis.baseline_condition
-    baseline_label = default_condition_display_label(resolved_baseline_condition)
+    baseline_label = default_condition_display_label(
+        resolved_baseline_condition,
+        style=condition_label_style,
+    )
     heatmap_columns = {
         "log2_fc_area": "Area",
         "log2_fc_eccentricity": "Eccentricity",
@@ -79,9 +100,10 @@ def plot_morphology_heatmap(
                     value = heatmap_data.iloc[row_index, column_index]
                     label = "NA" if not np.isfinite(value) else f"{value:.2f}"
                     metric = heatmap_metrics[fold_change_column]
-                    stars = str(donor_df.iloc[row_index].get(f"stars_{metric}", "NA"))
-                    if stars not in {"baseline", "NA", "ns"}:
-                        label = f"{label}\n{stars}"
+                    if show_significance_stars:
+                        stars = str(donor_df.iloc[row_index].get(f"stars_{metric}", "NA"))
+                        if stars not in {"baseline", "NA", "ns"}:
+                            label = f"{label}\n{stars}"
                     annotation_labels[row_index, column_index] = label
             donor_label = str(donor_df["donor_label"].dropna().iloc[0])
             sns.heatmap(
@@ -96,7 +118,14 @@ def plot_morphology_heatmap(
                 linewidths=0.5,
                 linecolor="white",
                 xticklabels=list(heatmap_columns.values()),
-                yticklabels=[default_condition_display_label(condition) for condition in condition_order],
+                yticklabels=[
+                    default_condition_display_label(
+                        condition,
+                        style=condition_label_style,
+                        wrap_width=resolved_condition_label_wrap_width,
+                    )
+                    for condition in condition_order
+                ],
                 cbar=ax is axes[-1],
                 cbar_kws={"label": f"Log2 fold change vs {baseline_label}"},
             )
@@ -115,7 +144,19 @@ def plot_morphology_heatmap(
         plt.show()
         return fold_change_df
 
-    heatmap_data = fold_change_df.set_index("condition_label")[list(heatmap_columns)].rename(columns=heatmap_columns)
+    heatmap_data = (
+        fold_change_df.assign(
+            display_condition_label=fold_change_df["condition"].astype(str).map(
+                lambda condition: default_condition_display_label(
+                    condition,
+                    style=condition_label_style,
+                    wrap_width=resolved_condition_label_wrap_width,
+                )
+            )
+        )
+        .set_index("display_condition_label")[list(heatmap_columns)]
+        .rename(columns=heatmap_columns)
+    )
     finite_values = heatmap_data.to_numpy(dtype=float)
     finite_values = finite_values[np.isfinite(finite_values)]
     color_limit = max(1.0, float(np.max(np.abs(finite_values)))) if finite_values.size else 1.0

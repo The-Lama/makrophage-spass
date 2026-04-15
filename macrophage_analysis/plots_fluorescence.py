@@ -22,6 +22,7 @@ from .config import (
     default_measurement_summary_label,
     default_measurement_title_label,
     default_condition_display_label,
+    wrap_display_label,
 )
 from .core import load_grayscale_tif
 from .fluorescence_processing import build_plot_frames
@@ -222,6 +223,10 @@ def plot_summary_heatmap(
     condition_labels: Mapping[str, str] | None = None,
     antibody_labels: Mapping[str, str] | None = None,
     donor_labels: Mapping[str, str] | None = None,
+    show_significance_stars: bool = True,
+    exclude_treatment: str | None = None,
+    condition_label_style: str = "short",
+    condition_label_wrap_width: int | None = None,
 ) -> dict[str, np.ndarray]:
     sns.set_theme(**DEFAULT_SEABORN_THEME)
 
@@ -232,12 +237,32 @@ def plot_summary_heatmap(
             return measurement.overall_mean
         raise ValueError(f"Unsupported summary_stat: {summary_stat}")
 
+    resolved_condition_label_wrap_width = (
+        18
+        if condition_label_style == "descriptive" and condition_label_wrap_width is None
+        else condition_label_wrap_width
+    )
     resolved_condition_labels = {
         condition: condition_labels[condition]
         if condition_labels is not None and condition in condition_labels
-        else default_condition_display_label(condition)
+        else default_condition_display_label(condition, style=condition_label_style)
         for condition in analysis.conditions
     }
+    display_condition_labels = {
+        condition: default_condition_display_label(
+            condition,
+            style=condition_label_style,
+            wrap_width=resolved_condition_label_wrap_width,
+        )
+        for condition in analysis.conditions
+    }
+    if condition_labels is not None:
+        for condition, label in condition_labels.items():
+            if condition in display_condition_labels:
+                display_condition_labels[condition] = wrap_display_label(
+                    label,
+                    width=resolved_condition_label_wrap_width,
+                )
     resolved_antibody_labels = {
         antibody: antibody_labels[antibody]
         if antibody_labels is not None and antibody in antibody_labels
@@ -255,12 +280,19 @@ def plot_summary_heatmap(
         analysis.measurement_scale,
         summary_stat=summary_stat,
     )
+    condition_order = list(analysis.conditions)
+    if exclude_treatment is not None:
+        if exclude_treatment not in condition_order:
+            raise ValueError(f"exclude_treatment must be one of {condition_order}")
+        condition_order = [condition for condition in condition_order if condition != exclude_treatment]
+    if not condition_order:
+        raise ValueError("At least one treatment must remain in the heatmap")
 
     heatmap_matrices: dict[str, np.ndarray] = {}
     all_fold_changes: list[float] = []
     for donor in analysis.donors:
         donor_matrix = []
-        for condition in analysis.conditions:
+        for condition in condition_order:
             row = []
             for antibody in analysis.antibody_order:
                 baseline_measurement = analysis.results[(antibody, analysis.baseline_condition, donor)]
@@ -293,11 +325,15 @@ def plot_summary_heatmap(
         annotation_labels = np.empty(matrix.shape, dtype=object)
         for row_index in range(matrix.shape[0]):
             for column_index in range(matrix.shape[1]):
-                condition = analysis.conditions[row_index]
+                condition = condition_order[row_index]
                 antibody = analysis.antibody_order[column_index]
                 value = matrix[row_index, column_index]
                 label = "NA" if not np.isfinite(value) else f"{value:.2f}"
-                if stat_results is not None and condition != analysis.baseline_condition:
+                if (
+                    show_significance_stars
+                    and stat_results is not None
+                    and condition != analysis.baseline_condition
+                ):
                     match = stat_results[
                         (stat_results["donor"] == donor)
                         & (stat_results["condition"] == condition)
@@ -320,7 +356,7 @@ def plot_summary_heatmap(
             linewidths=0.5,
             linecolor="white",
             xticklabels=[resolved_antibody_labels[antibody] for antibody in analysis.antibody_order],
-            yticklabels=[resolved_condition_labels[condition] for condition in analysis.conditions],
+            yticklabels=[display_condition_labels[condition] for condition in condition_order],
             cbar=ax is axes[-1],
             cbar_kws={"label": f"Log2 fold change relative to {baseline_label}"},
         )

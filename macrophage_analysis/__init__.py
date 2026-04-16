@@ -78,7 +78,6 @@ _EXPORTS: dict[str, tuple[str, str]] = {
     "build_morphology_table": (".analysis.tables", "build_morphology_table"),
     "build_stat_summary_table": (".analysis.tables", "build_stat_summary_table"),
     "clear_image_catalog_cache": (".io", "clear_image_catalog_cache"),
-    "display_stat_summary_tables": (".analysis.tables", "display_stat_summary_tables"),
     "extract_condition_comparison": (".analysis.pipelines", "extract_condition_comparison"),
     "extract_single_cell_fluorescence": (".analysis.pipelines", "extract_single_cell_fluorescence"),
     "extract_single_cell_relative_fluorescence": (
@@ -90,20 +89,21 @@ _EXPORTS: dict[str, tuple[str, str]] = {
     "load_stardist_model": (".analysis.extraction", "load_stardist_model"),
     "mann_whitney_u_test": (".stats", "mann_whitney_u_test"),
     "plot_area_intensity_scatter": (".plotting.morphology", "plot_area_intensity_scatter"),
-    "plot_condition_brightness_debug": (
-        ".plotting.fluorescence",
-        "plot_condition_brightness_debug",
-    ),
-    "plot_condition_comparison": (".plotting.fluorescence", "plot_condition_comparison"),
-    "plot_condition_histograms": (".plotting.fluorescence", "plot_condition_histograms"),
-    "plot_condition_relative_background_debug": (
-        ".plotting.fluorescence",
-        "plot_condition_relative_background_debug",
-    ),
     "plot_morphology_heatmap": (".plotting.morphology", "plot_morphology_heatmap"),
     "plot_morphology_scatter": (".plotting.morphology", "plot_morphology_scatter"),
-    "plot_summary_heatmap": (".plotting.fluorescence", "plot_summary_heatmap"),
-    "plot_violins_with_stats": (".plotting.fluorescence", "plot_violins_with_stats"),
+    "display_stat_summary_tables": (".plotting.fluorescence_summary", "display_stat_summary_tables"),
+    "plot_summary_heatmap": (".plotting.fluorescence_summary", "plot_summary_heatmap"),
+    "plot_violins_with_stats": (".plotting.fluorescence_summary", "plot_violins_with_stats"),
+    "plot_condition_brightness_debug": (
+        ".plotting.fluorescence_debug",
+        "plot_condition_brightness_debug",
+    ),
+    "plot_condition_comparison": (".plotting.fluorescence_debug", "plot_condition_comparison"),
+    "plot_condition_histograms": (".plotting.fluorescence_debug", "plot_condition_histograms"),
+    "plot_condition_relative_background_debug": (
+        ".plotting.fluorescence_debug",
+        "plot_condition_relative_background_debug",
+    ),
     "sort_microscopy_images": (".io", "sort_microscopy_images"),
 }
 

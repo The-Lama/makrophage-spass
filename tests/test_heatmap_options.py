@@ -20,7 +20,7 @@ from macrophage_analysis.config import (
 )
 
 if np is not None and pd is not None:
-    from macrophage_analysis.plotting.fluorescence import plot_summary_heatmap
+    from macrophage_analysis.plotting.fluorescence_summary import plot_summary_heatmap
     from macrophage_analysis.plotting.morphology import plot_morphology_heatmap
 
 
@@ -96,8 +96,8 @@ class HeatmapOptionTests(unittest.TestCase):
     def test_plot_summary_heatmap_can_hide_significance_stars(self) -> None:
         analysis = self._build_fluorescence_analysis()
         with (
-            patch("macrophage_analysis.plotting.fluorescence.sns.heatmap") as heatmap_mock,
-            patch("macrophage_analysis.plotting.fluorescence.plt.show"),
+            patch("macrophage_analysis.plotting.fluorescence_summary.sns.heatmap") as heatmap_mock,
+            patch("macrophage_analysis.plotting.fluorescence_summary.plt.show"),
         ):
             plot_summary_heatmap(
                 analysis,
@@ -111,8 +111,8 @@ class HeatmapOptionTests(unittest.TestCase):
     def test_plot_summary_heatmap_can_exclude_treatment(self) -> None:
         analysis = self._build_fluorescence_analysis()
         with (
-            patch("macrophage_analysis.plotting.fluorescence.sns.heatmap") as heatmap_mock,
-            patch("macrophage_analysis.plotting.fluorescence.plt.show"),
+            patch("macrophage_analysis.plotting.fluorescence_summary.sns.heatmap") as heatmap_mock,
+            patch("macrophage_analysis.plotting.fluorescence_summary.plt.show"),
         ):
             matrices = plot_summary_heatmap(
                 analysis,
@@ -129,8 +129,8 @@ class HeatmapOptionTests(unittest.TestCase):
     def test_plot_summary_heatmap_can_use_descriptive_condition_labels(self) -> None:
         analysis = self._build_fluorescence_analysis()
         with (
-            patch("macrophage_analysis.plotting.fluorescence.sns.heatmap") as heatmap_mock,
-            patch("macrophage_analysis.plotting.fluorescence.plt.show"),
+            patch("macrophage_analysis.plotting.fluorescence_summary.sns.heatmap") as heatmap_mock,
+            patch("macrophage_analysis.plotting.fluorescence_summary.plt.show"),
         ):
             plot_summary_heatmap(
                 analysis,

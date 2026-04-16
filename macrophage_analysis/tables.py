@@ -10,6 +10,7 @@ from .config import (
     DEFAULT_ANTIBODY_ORDER,
     DEFAULT_BASELINE_CONDITION,
     DEFAULT_DONOR_DISPLAY_LABELS,
+    MeasurementResult,
     default_condition_display_label,
 )
 from .fluorescence_processing import group_plot_values
@@ -172,53 +173,85 @@ def build_morphology_table(
     for condition in condition_list:
         for donor in donor_list:
             measurement = analysis.results[(antibody, condition, donor)]
-            if measurement.areas is None or measurement.eccentricities is None:
-                raise ValueError(
-                    "This BatchAnalysis does not include morphology metrics. "
-                    "Rerun extract_single_cell_fluorescence after updating the macrophage_analysis package."
-                )
-            intensities = np.asarray(measurement.measurement_values, dtype=float)
-            areas = np.asarray(measurement.areas, dtype=float)
-            eccentricities = np.asarray(measurement.eccentricities, dtype=float)
-            if not (intensities.size == areas.size == eccentricities.size):
-                raise ValueError(f"Mismatched cell metrics for {antibody} / {condition} / {donor}")
-            valid_index = np.flatnonzero(np.isfinite(intensities) & np.isfinite(areas) & np.isfinite(eccentricities))
-            if valid_index.size == 0:
-                continue
-            frames.append(
-                pd.DataFrame(
-                    {
-                        "antibody": antibody,
-                        "condition": condition,
-                        "condition_label": default_condition_display_label(condition),
-                        "donor": donor,
-                        "donor_label": DEFAULT_DONOR_DISPLAY_LABELS.get(donor, donor),
-                        "cell_index": valid_index,
-                        "intensity": intensities[valid_index],
-                        "area": areas[valid_index],
-                        "eccentricity": eccentricities[valid_index],
-                        "path": str(measurement.path),
-                        "filename": measurement.path.name,
-                    }
-                )
+            frame = _build_morphology_measurement_frame(
+                measurement,
+                antibody=antibody,
+                condition=condition,
+                donor=donor,
             )
+            if frame is not None:
+                frames.append(frame)
 
     morphology_df = pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
     if morphology_df.empty:
         return morphology_df
-    morphology_df["condition"] = pd.Categorical(morphology_df["condition"], categories=condition_list, ordered=True)
-    morphology_df["condition_label"] = pd.Categorical(
-        morphology_df["condition_label"],
+    return _categorize_morphology_table(morphology_df, donor_list=donor_list, condition_list=condition_list)
+
+
+def _build_morphology_measurement_frame(
+    measurement: MeasurementResult,
+    *,
+    antibody: str,
+    condition: str,
+    donor: str,
+) -> pd.DataFrame | None:
+    if measurement.areas is None or measurement.eccentricities is None:
+        raise ValueError(
+            "This BatchAnalysis does not include morphology metrics. "
+            "Rerun extract_single_cell_fluorescence after updating the macrophage_analysis package."
+        )
+
+    intensities = np.asarray(measurement.measurement_values, dtype=float)
+    areas = np.asarray(measurement.areas, dtype=float)
+    eccentricities = np.asarray(measurement.eccentricities, dtype=float)
+    if not (intensities.size == areas.size == eccentricities.size):
+        raise ValueError(f"Mismatched cell metrics for {antibody} / {condition} / {donor}")
+
+    valid_index = np.flatnonzero(np.isfinite(intensities) & np.isfinite(areas) & np.isfinite(eccentricities))
+    if valid_index.size == 0:
+        return None
+
+    return pd.DataFrame(
+        {
+            "antibody": antibody,
+            "condition": condition,
+            "condition_label": default_condition_display_label(condition),
+            "donor": donor,
+            "donor_label": DEFAULT_DONOR_DISPLAY_LABELS.get(donor, donor),
+            "cell_index": valid_index,
+            "intensity": intensities[valid_index],
+            "area": areas[valid_index],
+            "eccentricity": eccentricities[valid_index],
+            "path": str(measurement.path),
+            "filename": measurement.path.name,
+        }
+    )
+
+
+def _categorize_morphology_table(
+    morphology_df: pd.DataFrame,
+    *,
+    donor_list: list[str],
+    condition_list: list[str],
+) -> pd.DataFrame:
+    categorized_df = morphology_df.copy()
+    categorized_df["condition"] = pd.Categorical(
+        categorized_df["condition"],
+        categories=condition_list,
+        ordered=True,
+    )
+    categorized_df["condition_label"] = pd.Categorical(
+        categorized_df["condition_label"],
         categories=[default_condition_display_label(condition) for condition in condition_list],
         ordered=True,
     )
-    morphology_df["donor"] = pd.Categorical(morphology_df["donor"], categories=donor_list, ordered=True)
-    morphology_df["donor_label"] = pd.Categorical(
-        morphology_df["donor_label"],
+    categorized_df["donor"] = pd.Categorical(categorized_df["donor"], categories=donor_list, ordered=True)
+    categorized_df["donor_label"] = pd.Categorical(
+        categorized_df["donor_label"],
         categories=[DEFAULT_DONOR_DISPLAY_LABELS.get(donor, donor) for donor in donor_list],
         ordered=True,
     )
-    return morphology_df
+    return categorized_df
 
 
 def build_morphology_summary_table(

@@ -31,6 +31,66 @@ from .core import (
 from .planning import build_condition_comparison_requests, build_measurement_requests
 
 
+def _segment_and_measure_image(
+    image_path: Path,
+    *,
+    model_name: str,
+    n_tiles: tuple[int, int] | None,
+) -> tuple[np.ndarray, np.ndarray, dict, np.ndarray, np.ndarray, np.ndarray]:
+    image = load_grayscale_tif(image_path)
+    labels, details = predict_stardist_labels(image, model_name=model_name, n_tiles=n_tiles)
+    mean_intensities, areas, eccentricities = extract_cell_measurements(image, labels)
+    return image, labels, details, mean_intensities, areas, eccentricities
+
+
+def _normalize_measurement_values(
+    mean_intensities: np.ndarray,
+    *,
+    image: np.ndarray | None = None,
+    labels: np.ndarray | None = None,
+    relative_to_background: bool,
+    background_percentile: float,
+) -> tuple[np.ndarray, float | None]:
+    if not relative_to_background:
+        return mean_intensities, None
+    if image is None or labels is None:
+        raise ValueError("image and labels are required for background normalization")
+
+    background_intensity = estimate_background_intensity(
+        image,
+        labels,
+        background_percentile=background_percentile,
+    )
+    return divide_by_background(mean_intensities, background_intensity), background_intensity
+
+
+def _build_measurement_result(
+    image_path: Path,
+    *,
+    raw_mean_intensities: np.ndarray,
+    measurement_values: np.ndarray,
+    areas: np.ndarray,
+    eccentricities: np.ndarray,
+    measurement_scale: str,
+    background_intensity: float | None,
+    background_percentile: float | None,
+) -> MeasurementResult:
+    cell_count, measurement_mean, measurement_median = summarize_intensities(measurement_values)
+    return MeasurementResult(
+        path=image_path,
+        cell_count=cell_count,
+        raw_mean_intensities=raw_mean_intensities,
+        measurement_values=measurement_values,
+        measurement_mean=measurement_mean,
+        measurement_median=measurement_median,
+        measurement_scale=measurement_scale,
+        areas=areas,
+        eccentricities=eccentricities,
+        background_intensity=background_intensity,
+        background_percentile=background_percentile,
+    )
+
+
 def extract_condition_comparison(
     donors: Iterable[str],
     condition: str,
@@ -52,9 +112,11 @@ def extract_condition_comparison(
     )
 
     for request in requests:
-        image = load_grayscale_tif(request.path)
-        labels, details = predict_stardist_labels(image, model_name=model_name, n_tiles=n_tiles)
-        mean_intensities, areas, eccentricities = extract_cell_measurements(image, labels)
+        image, labels, details, mean_intensities, areas, eccentricities = _segment_and_measure_image(
+            request.path,
+            model_name=model_name,
+            n_tiles=n_tiles,
+        )
         cell_count, overall_mean, overall_median = summarize_intensities(mean_intensities)
         donor_results[request.donor] = ComparisonDonorResult(
             path=request.path,
@@ -120,29 +182,25 @@ def _run_batch_analysis(
                 message += " relative to image background"
             print(f"{message}...")
 
-        image = load_grayscale_tif(request.path)
-        labels, _ = predict_stardist_labels(image, model_name=model_name, n_tiles=n_tiles)
-        mean_intensities, areas, eccentricities = extract_cell_measurements(image, labels)
-        background_intensity = None
-        result_intensities = mean_intensities
-        if relative_to_background:
-            background_intensity = estimate_background_intensity(
-                image,
-                labels,
-                background_percentile=background_percentile,
-            )
-            result_intensities = divide_by_background(mean_intensities, background_intensity)
-        cell_count, overall_mean, overall_median = summarize_intensities(result_intensities)
-        results[(request.antibody, request.condition, request.donor)] = MeasurementResult(
-            path=request.path,
-            cell_count=cell_count,
+        image, labels, _, mean_intensities, areas, eccentricities = _segment_and_measure_image(
+            request.path,
+            model_name=model_name,
+            n_tiles=n_tiles,
+        )
+        result_intensities, background_intensity = _normalize_measurement_values(
+            mean_intensities,
+            image=image,
+            labels=labels,
+            relative_to_background=relative_to_background,
+            background_percentile=background_percentile,
+        )
+        results[(request.antibody, request.condition, request.donor)] = _build_measurement_result(
+            request.path,
             raw_mean_intensities=mean_intensities,
             measurement_values=result_intensities,
-            measurement_mean=overall_mean,
-            measurement_median=overall_median,
-            measurement_scale=measurement_scale,
             areas=areas,
             eccentricities=eccentricities,
+            measurement_scale=measurement_scale,
             background_intensity=background_intensity,
             background_percentile=background_percentile if relative_to_background else None,
         )

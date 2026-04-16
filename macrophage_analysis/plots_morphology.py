@@ -9,6 +9,7 @@ import seaborn as sns
 
 from .config import BatchAnalysis, DEFAULT_SEABORN_THEME, default_condition_display_label
 from .morphology_processing import prepare_morphology_scatter_points
+from .plotting_utils import build_heatmap_annotation_labels
 from .tables import (
     build_morphology_fold_change_table,
     build_morphology_summary_table,
@@ -68,6 +69,7 @@ def plot_morphology_heatmap(
         "log2_fc_eccentricity": "eccentricity",
         "log2_fc_cd206_brightness": "cd206_brightness",
     }
+    heatmap_metric_keys = list(heatmap_columns)
     if per_donor:
         comparison_label = f"each donor's {baseline_label}"
         donor_order = [
@@ -94,17 +96,21 @@ def plot_morphology_heatmap(
         for ax, donor in zip(axes, donor_order):
             donor_df = fold_change_df.loc[fold_change_df["donor"].astype(str) == donor].set_index("condition").reindex(condition_order)
             heatmap_data = donor_df[list(heatmap_columns)].rename(columns=heatmap_columns)
-            annotation_labels = np.empty(heatmap_data.shape, dtype=object)
-            for row_index, condition in enumerate(condition_order):
-                for column_index, fold_change_column in enumerate(heatmap_columns):
-                    value = heatmap_data.iloc[row_index, column_index]
-                    label = "NA" if not np.isfinite(value) else f"{value:.2f}"
-                    metric = heatmap_metrics[fold_change_column]
-                    if show_significance_stars:
-                        stars = str(donor_df.iloc[row_index].get(f"stars_{metric}", "NA"))
-                        if stars not in {"baseline", "NA", "ns"}:
-                            label = f"{label}\n{stars}"
-                    annotation_labels[row_index, column_index] = label
+            annotation_labels = build_heatmap_annotation_labels(
+                heatmap_data.to_numpy(dtype=float),
+                row_labels=condition_order,
+                column_labels=heatmap_metric_keys,
+                star_getter=(
+                    lambda row_index, column_index, donor_df=donor_df, heatmap_metric_keys=heatmap_metric_keys: str(
+                        donor_df.iloc[row_index].get(
+                            f"stars_{heatmap_metrics[heatmap_metric_keys[column_index]]}",
+                            "NA",
+                        )
+                    )
+                    if show_significance_stars
+                    else None
+                ),
+            )
             donor_label = str(donor_df["donor_label"].dropna().iloc[0])
             sns.heatmap(
                 heatmap_data,
@@ -162,6 +168,11 @@ def plot_morphology_heatmap(
     color_limit = max(1.0, float(np.max(np.abs(finite_values)))) if finite_values.size else 1.0
     sns.set_theme(**DEFAULT_SEABORN_THEME)
     fig, ax = plt.subplots(figsize=(7, 5.5), constrained_layout=True)
+    annotation_labels = build_heatmap_annotation_labels(
+        heatmap_data.to_numpy(dtype=float),
+        row_labels=list(heatmap_data.index),
+        column_labels=list(heatmap_data.columns),
+    )
     sns.heatmap(
         heatmap_data,
         ax=ax,
@@ -169,8 +180,8 @@ def plot_morphology_heatmap(
         center=0,
         vmin=-color_limit,
         vmax=color_limit,
-        annot=True,
-        fmt=".2f",
+        annot=annotation_labels,
+        fmt="",
         linewidths=0.5,
         linecolor="white",
         cbar_kws={"label": f"Log2 fold change vs {baseline_label}"},

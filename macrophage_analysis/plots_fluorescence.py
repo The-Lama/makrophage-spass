@@ -26,6 +26,7 @@ from .config import (
 )
 from .core import load_grayscale_tif
 from .fluorescence_processing import build_plot_frames
+from .plotting_utils import build_heatmap_annotation_labels
 from .tables import build_stat_summary_table, display_stat_summary_tables as _display_stat_summary_tables
 
 
@@ -48,6 +49,23 @@ def _deduplicate_legend(ax: plt.Axes, donors: Iterable[str]) -> None:
         legend = ax.get_legend()
         if legend is not None:
             legend.remove()
+
+
+def _build_stat_star_lookup(stat_results: pd.DataFrame | None) -> dict[tuple[str, str, str], str]:
+    if stat_results is None or stat_results.empty:
+        return {}
+    return {
+        (str(row.donor), str(row.condition), str(row.antibody)): str(row.stars)
+        for row in stat_results.itertuples(index=False)
+    }
+
+
+def _resolve_summary_value(measurement: MeasurementResult, *, summary_stat: str) -> float:
+    if summary_stat == "median":
+        return measurement.overall_median
+    if summary_stat == "mean":
+        return measurement.overall_mean
+    raise ValueError(f"Unsupported summary_stat: {summary_stat}")
 
 
 def display_stat_summary_tables(
@@ -230,13 +248,6 @@ def plot_summary_heatmap(
 ) -> dict[str, np.ndarray]:
     sns.set_theme(**DEFAULT_SEABORN_THEME)
 
-    def summarize(measurement: MeasurementResult) -> float:
-        if summary_stat == "median":
-            return measurement.overall_median
-        if summary_stat == "mean":
-            return measurement.overall_mean
-        raise ValueError(f"Unsupported summary_stat: {summary_stat}")
-
     resolved_condition_label_wrap_width = (
         18
         if condition_label_style == "descriptive" and condition_label_wrap_width is None
@@ -281,6 +292,7 @@ def plot_summary_heatmap(
         summary_stat=summary_stat,
     )
     condition_order = list(analysis.conditions)
+    antibody_order = list(analysis.antibody_order)
     if exclude_treatment is not None:
         if exclude_treatment not in condition_order:
             raise ValueError(f"exclude_treatment must be one of {condition_order}")
@@ -294,11 +306,11 @@ def plot_summary_heatmap(
         donor_matrix = []
         for condition in condition_order:
             row = []
-            for antibody in analysis.antibody_order:
+            for antibody in antibody_order:
                 baseline_measurement = analysis.results[(antibody, analysis.baseline_condition, donor)]
                 current_measurement = analysis.results[(antibody, condition, donor)]
-                baseline_value = summarize(baseline_measurement)
-                current_value = summarize(current_measurement)
+                baseline_value = _resolve_summary_value(baseline_measurement, summary_stat=summary_stat)
+                current_value = _resolve_summary_value(current_measurement, summary_stat=summary_stat)
                 if condition == analysis.baseline_condition and np.isfinite(baseline_value):
                     fold_change = 0.0
                 elif (
@@ -317,33 +329,24 @@ def plot_summary_heatmap(
         heatmap_matrices[donor] = np.array(donor_matrix, dtype=float)
 
     color_limit = max(1.0, float(np.nanmax(np.abs(all_fold_changes)))) if all_fold_changes else 1.0
+    stat_star_lookup = _build_stat_star_lookup(stat_results)
     fig, axes = plt.subplots(1, len(analysis.donors), figsize=(5.5 * len(analysis.donors), 6), constrained_layout=True)
     if len(analysis.donors) == 1:
         axes = [axes]
     for ax, donor in zip(axes, analysis.donors):
         matrix = heatmap_matrices[donor]
-        annotation_labels = np.empty(matrix.shape, dtype=object)
-        for row_index in range(matrix.shape[0]):
-            for column_index in range(matrix.shape[1]):
-                condition = condition_order[row_index]
-                antibody = analysis.antibody_order[column_index]
-                value = matrix[row_index, column_index]
-                label = "NA" if not np.isfinite(value) else f"{value:.2f}"
-                if (
-                    show_significance_stars
-                    and stat_results is not None
-                    and condition != analysis.baseline_condition
-                ):
-                    match = stat_results[
-                        (stat_results["donor"] == donor)
-                        & (stat_results["condition"] == condition)
-                        & (stat_results["antibody"] == antibody)
-                    ]
-                    if not match.empty:
-                        stars = str(match.iloc[0]["stars"])
-                        if stars not in {"baseline", "NA", "ns"}:
-                            label = f"{label}\n{stars}"
-                annotation_labels[row_index, column_index] = label
+        annotation_labels = build_heatmap_annotation_labels(
+            matrix,
+            row_labels=condition_order,
+            column_labels=antibody_order,
+            star_getter=(
+                (lambda row_index, column_index, donor=donor, antibody_order=antibody_order: stat_star_lookup.get(
+                    (donor, condition_order[row_index], antibody_order[column_index])
+                ))
+                if show_significance_stars and stat_star_lookup
+                else None
+            ),
+        )
         sns.heatmap(
             matrix,
             ax=ax,
@@ -355,7 +358,7 @@ def plot_summary_heatmap(
             fmt="",
             linewidths=0.5,
             linecolor="white",
-            xticklabels=[resolved_antibody_labels[antibody] for antibody in analysis.antibody_order],
+            xticklabels=[resolved_antibody_labels[antibody] for antibody in antibody_order],
             yticklabels=[display_condition_labels[condition] for condition in condition_order],
             cbar=ax is axes[-1],
             cbar_kws={"label": f"Log2 fold change relative to {baseline_label}"},

@@ -37,11 +37,11 @@ def _segment_and_measure_image(
     *,
     model_name: str,
     n_tiles: tuple[int, int] | None,
-) -> tuple[np.ndarray, np.ndarray, dict, np.ndarray, np.ndarray, np.ndarray]:
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     image = load_grayscale_tif(image_path)
-    labels, details = predict_stardist_labels(image, model_name=model_name, n_tiles=n_tiles)
+    labels, _ = predict_stardist_labels(image, model_name=model_name, n_tiles=n_tiles)
     mean_intensities, areas, eccentricities = extract_cell_measurements(image, labels)
-    return image, labels, details, mean_intensities, areas, eccentricities
+    return image, labels, mean_intensities, areas, eccentricities
 
 
 def _normalize_measurement_values(
@@ -113,7 +113,7 @@ def extract_condition_comparison(
     )
 
     for request in requests:
-        image, labels, details, mean_intensities, areas, eccentricities = _segment_and_measure_image(
+        image, labels, mean_intensities, _, _ = _segment_and_measure_image(
             request.path,
             model_name=model_name,
             n_tiles=n_tiles,
@@ -123,19 +123,15 @@ def extract_condition_comparison(
             path=request.path,
             image=image,
             labels=labels,
-            details=details,
             mean_intensities=mean_intensities,
             cell_count=cell_count,
             overall_mean=overall_mean,
             overall_median=overall_median,
-            areas=areas,
-            eccentricities=eccentricities,
         )
 
     return ConditionComparison(
         condition=condition,
         donors=donor_list,
-        marker_prefix=marker_prefix,
         channel=channel,
         donor_results=donor_results,
     )
@@ -183,7 +179,7 @@ def _run_batch_analysis(
                 message += " relative to image background"
             print(f"{message}...")
 
-        image, labels, _, mean_intensities, areas, eccentricities = _segment_and_measure_image(
+        image, labels, mean_intensities, areas, eccentricities = _segment_and_measure_image(
             request.path,
             model_name=model_name,
             n_tiles=n_tiles,

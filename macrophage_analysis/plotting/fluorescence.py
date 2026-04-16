@@ -17,7 +17,6 @@ from ..config import (
     DEFAULT_DONOR_COLORS,
     DEFAULT_DONOR_DISPLAY_LABELS,
     DEFAULT_SEABORN_THEME,
-    MeasurementResult,
     default_measurement_axis_label,
     default_measurement_summary_label,
     default_measurement_title_label,

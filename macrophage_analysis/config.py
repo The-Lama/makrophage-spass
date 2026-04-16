@@ -73,20 +73,16 @@ class ComparisonDonorResult:
     path: Path
     image: "np.ndarray"
     labels: "np.ndarray"
-    details: dict
     mean_intensities: "np.ndarray"
     cell_count: int
     overall_mean: float
     overall_median: float
-    areas: "np.ndarray | None" = None
-    eccentricities: "np.ndarray | None" = None
 
 
 @dataclass
 class ConditionComparison:
     condition: str
     donors: list[str]
-    marker_prefix: str
     channel: str
     donor_results: dict[str, ComparisonDonorResult]
 

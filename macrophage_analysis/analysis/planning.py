@@ -13,8 +13,6 @@ class MeasurementRequest:
     antibody: str
     donor: str
     condition: str
-    marker_prefix: str
-    channel: str
     path: Path
 
 
@@ -40,8 +38,6 @@ def build_measurement_requests(
                         antibody=antibody,
                         donor=donor,
                         condition=condition,
-                        marker_prefix=spec.marker_prefix,
-                        channel=spec.channel,
                         path=catalog.find_path(donor, condition, spec.marker_prefix, spec.channel),
                     )
                 )
@@ -63,8 +59,6 @@ def build_condition_comparison_requests(
             antibody=f"{marker_prefix} {channel}",
             donor=donor,
             condition=condition,
-            marker_prefix=marker_prefix,
-            channel=channel,
             path=catalog.find_path(donor, condition, marker_prefix, channel),
         )
         for donor in donor_list

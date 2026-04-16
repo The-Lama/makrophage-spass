@@ -295,6 +295,71 @@ def _morphology_summary_function(summary_stat: str):
     raise ValueError("summary_stat must be 'median' or 'mean'")
 
 
+MORPHOLOGY_METRIC_SOURCES = {
+    "area": "area",
+    "eccentricity": "eccentricity",
+    "cd206_brightness": "intensity",
+}
+
+
+def _normalize_morphology_group_key(group_key: object) -> tuple[object, ...]:
+    return group_key if isinstance(group_key, tuple) else (group_key,)
+
+
+def _build_morphology_group_lookup(
+    morphology_df: pd.DataFrame,
+    *,
+    grouping_columns: list[str],
+) -> dict[tuple[object, ...], pd.DataFrame]:
+    return {
+        _normalize_morphology_group_key(group_key): group
+        for group_key, group in morphology_df.groupby(grouping_columns, observed=True)
+    }
+
+
+def _build_morphology_stat_row(
+    group_key: tuple[object, ...],
+    current_group: pd.DataFrame,
+    group_lookup: dict[tuple[object, ...], pd.DataFrame],
+    *,
+    baseline_condition: str,
+    per_donor: bool,
+) -> dict[str, object]:
+    row: dict[str, object] = {
+        f"u_stat_{metric}": np.nan for metric in MORPHOLOGY_METRIC_SOURCES
+    }
+    row.update({f"p_value_{metric}": np.nan for metric in MORPHOLOGY_METRIC_SOURCES})
+    row.update({f"stars_{metric}": "NA" for metric in MORPHOLOGY_METRIC_SOURCES})
+
+    if per_donor:
+        donor, condition = group_key
+        row["donor"] = donor
+        baseline_key = (donor, baseline_condition)
+    else:
+        (condition,) = group_key
+        baseline_key = (baseline_condition,)
+    row["condition"] = condition
+
+    if condition == baseline_condition:
+        for metric in MORPHOLOGY_METRIC_SOURCES:
+            row[f"stars_{metric}"] = "baseline"
+        return row
+
+    baseline_group = group_lookup.get(baseline_key)
+    if baseline_group is None:
+        return row
+
+    for metric, source_column in MORPHOLOGY_METRIC_SOURCES.items():
+        u_stat, p_value = mann_whitney_u_test(
+            baseline_group[source_column].to_numpy(dtype=float),
+            current_group[source_column].to_numpy(dtype=float),
+        )
+        row[f"u_stat_{metric}"] = u_stat
+        row[f"p_value_{metric}"] = p_value
+        row[f"stars_{metric}"] = pvalue_to_stars(p_value)
+    return row
+
+
 def _add_morphology_stat_columns(
     summary_df: pd.DataFrame,
     morphology_df: pd.DataFrame,
@@ -302,43 +367,20 @@ def _add_morphology_stat_columns(
     baseline_condition: str,
     per_donor: bool,
 ) -> pd.DataFrame:
-    metric_sources = {"area": "area", "eccentricity": "eccentricity", "cd206_brightness": "intensity"}
     grouping_columns = ["condition"] if not per_donor else ["donor", "condition"]
-    value_groups = {
-        tuple(key if isinstance(key, tuple) else (key,)): group
-        for key, group in morphology_df.groupby(grouping_columns, observed=True)
-    }
-    stats_rows: list[dict[str, object]] = []
-    for group_key, current_group in value_groups.items():
-        row: dict[str, object] = {}
-        if per_donor:
-            donor, condition = group_key
-            row["donor"] = donor
-            baseline_key = (donor, baseline_condition)
-        else:
-            (condition,) = group_key
-            baseline_key = (baseline_condition,)
-        row["condition"] = condition
-        baseline_group = value_groups.get(baseline_key)
-        for metric, source_column in metric_sources.items():
-            row[f"u_stat_{metric}"] = np.nan
-            row[f"p_value_{metric}"] = np.nan
-            row[f"stars_{metric}"] = "NA"
-            if condition == baseline_condition:
-                row[f"stars_{metric}"] = "baseline"
-                continue
-            if baseline_group is None:
-                continue
-            u_stat, p_value = mann_whitney_u_test(
-                baseline_group[source_column].to_numpy(dtype=float),
-                current_group[source_column].to_numpy(dtype=float),
+    group_lookup = _build_morphology_group_lookup(morphology_df, grouping_columns=grouping_columns)
+    stats_df = pd.DataFrame(
+        [
+            _build_morphology_stat_row(
+                group_key,
+                current_group,
+                group_lookup,
+                baseline_condition=baseline_condition,
+                per_donor=per_donor,
             )
-            row[f"u_stat_{metric}"] = u_stat
-            row[f"p_value_{metric}"] = p_value
-            row[f"stars_{metric}"] = pvalue_to_stars(p_value)
-        stats_rows.append(row)
-
-    stats_df = pd.DataFrame(stats_rows)
+            for group_key, current_group in group_lookup.items()
+        ]
+    )
     return summary_df.merge(stats_df, on=grouping_columns, how="left")
 
 

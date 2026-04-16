@@ -15,6 +15,7 @@ from macrophage_analysis.config import (
     AntibodySpec,
     BatchAnalysis,
     MeasurementResult,
+    ResultKey,
     MEASUREMENT_SCALE_RAW_INTENSITY,
 )
 
@@ -46,9 +47,9 @@ class HeatmapOptionTests(unittest.TestCase):
             donor_colors={"D45": "#000000"},
             measurement_scale=MEASUREMENT_SCALE_RAW_INTENSITY,
             results={
-                ("CD40", "M0", "D45"): measurement("m0.tif", [2.0, 2.0, 2.0]),
-                ("CD40", "B68KCP2", "D45"): measurement("b68.tif", [4.0, 4.0, 4.0]),
-                ("CD40", "T12CMNepiP4", "D45"): measurement("t12.tif", [8.0, 8.0, 8.0]),
+                ResultKey("CD40", "M0", "D45"): measurement("m0.tif", [2.0, 2.0, 2.0]),
+                ResultKey("CD40", "B68KCP2", "D45"): measurement("b68.tif", [4.0, 4.0, 4.0]),
+                ResultKey("CD40", "T12CMNepiP4", "D45"): measurement("t12.tif", [8.0, 8.0, 8.0]),
             },
         )
 
@@ -86,9 +87,9 @@ class HeatmapOptionTests(unittest.TestCase):
             donor_colors={"D45": "#000000"},
             measurement_scale=MEASUREMENT_SCALE_RAW_INTENSITY,
             results={
-                ("CD206", "M0", "D45"): measurement("m0.tif", 1.0, 10.0, 0.10),
-                ("CD206", "B68KCP2", "D45"): measurement("b68.tif", 101.0, 110.0, 0.50),
-                ("CD206", "T12CMNepiP4", "D45"): measurement("t12.tif", 201.0, 210.0, 0.70),
+                ResultKey("CD206", "M0", "D45"): measurement("m0.tif", 1.0, 10.0, 0.10),
+                ResultKey("CD206", "B68KCP2", "D45"): measurement("b68.tif", 101.0, 110.0, 0.50),
+                ResultKey("CD206", "T12CMNepiP4", "D45"): measurement("t12.tif", 201.0, 210.0, 0.70),
             },
         )
 

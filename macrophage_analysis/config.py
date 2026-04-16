@@ -51,6 +51,13 @@ class AntibodySpec:
     channel: str
 
 
+@dataclass(frozen=True)
+class ResultKey:
+    antibody: str
+    condition: str
+    donor: str
+
+
 DEFAULT_ANTIBODY_SPECS: dict[str, AntibodySpec] = {
     "CD40": AntibodySpec("CD40_A488_10x_RGB_Qi2 10x", "FITC"),
     "CD86": AntibodySpec("CD86_A488_iNOS_A568_10x_RGB_Qi2 10x", "FITC"),
@@ -120,7 +127,16 @@ class BatchAnalysis:
     antibody_specs: dict[str, AntibodySpec]
     donor_colors: dict[str, str]
     measurement_scale: str
-    results: dict[tuple[str, str, str], MeasurementResult]
+    results: dict[ResultKey, MeasurementResult]
+
+    def get_result(self, antibody: str, condition: str, donor: str) -> MeasurementResult:
+        key = ResultKey(antibody=antibody, condition=condition, donor=donor)
+        try:
+            return self.results[key]
+        except KeyError as exc:
+            raise KeyError(
+                f"Missing analysis result for antibody={antibody}, condition={condition}, donor={donor}"
+            ) from exc
 
 
 def wrap_display_label(label: str, *, width: int | None = None) -> str:

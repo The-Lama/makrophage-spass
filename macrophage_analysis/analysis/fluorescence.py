@@ -31,7 +31,7 @@ def group_plot_values(
     grouped_values: dict[tuple[str, str], np.ndarray] = {}
     for condition in analysis.conditions:
         for donor in analysis.donors:
-            measurement = analysis.results[(antibody, condition, donor)]
+            measurement = analysis.get_result(antibody, condition, donor)
             grouped_values[(condition, donor)] = prepare_plot_values(
                 measurement.measurement_values,
                 plot_log_scale=plot_log_scale,

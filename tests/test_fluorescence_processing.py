@@ -11,6 +11,7 @@ from macrophage_analysis.config import (
     AntibodySpec,
     BatchAnalysis,
     MeasurementResult,
+    ResultKey,
     MEASUREMENT_SCALE_RAW_INTENSITY,
 )
 
@@ -30,7 +31,7 @@ class FluorescenceProcessingTests(unittest.TestCase):
             donor_colors={"D45": "#000000"},
             measurement_scale=MEASUREMENT_SCALE_RAW_INTENSITY,
             results={
-                ("CD40", "M0", "D45"): MeasurementResult(
+                ResultKey("CD40", "M0", "D45"): MeasurementResult(
                     path="m0.tif",  # type: ignore[arg-type]
                     cell_count=4,
                     raw_mean_intensities=np.array([0.0, 1.0, np.nan, 4.0]),
@@ -38,7 +39,7 @@ class FluorescenceProcessingTests(unittest.TestCase):
                     measurement_mean=1.6666666667,
                     measurement_median=1.0,
                 ),
-                ("CD40", "B68KCP2", "D45"): MeasurementResult(
+                ResultKey("CD40", "B68KCP2", "D45"): MeasurementResult(
                     path="treated.tif",  # type: ignore[arg-type]
                     cell_count=3,
                     raw_mean_intensities=np.array([2.0, 6.0, 8.0]),

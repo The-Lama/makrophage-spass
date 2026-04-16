@@ -24,6 +24,7 @@ from ..config import (
     default_condition_display_label,
     wrap_display_label,
 )
+from ..analysis.heatmaps import build_summary_heatmap_payload
 from ..analysis.extraction import load_grayscale_tif
 from ..analysis.fluorescence import build_plot_frames
 from .utils import build_heatmap_annotation_labels
@@ -58,14 +59,6 @@ def _build_stat_star_lookup(stat_results: pd.DataFrame | None) -> dict[tuple[str
         (str(row.donor), str(row.condition), str(row.antibody)): str(row.stars)
         for row in stat_results.itertuples(index=False)
     }
-
-
-def _resolve_summary_value(measurement: MeasurementResult, *, summary_stat: str) -> float:
-    if summary_stat == "median":
-        return measurement.overall_median
-    if summary_stat == "mean":
-        return measurement.overall_mean
-    raise ValueError(f"Unsupported summary_stat: {summary_stat}")
 
 
 def display_stat_summary_tables(
@@ -245,7 +238,7 @@ def plot_summary_heatmap(
     exclude_treatment: str | None = None,
     condition_label_style: str = "short",
     condition_label_wrap_width: int | None = None,
-) -> dict[str, np.ndarray]:
+    ) -> dict[str, np.ndarray]:
     sns.set_theme(**DEFAULT_SEABORN_THEME)
 
     resolved_condition_label_wrap_width = (
@@ -291,58 +284,30 @@ def plot_summary_heatmap(
         analysis.measurement_scale,
         summary_stat=summary_stat,
     )
-    condition_order = list(analysis.conditions)
-    antibody_order = list(analysis.antibody_order)
-    if exclude_treatment is not None:
-        if exclude_treatment not in condition_order:
-            raise ValueError(f"exclude_treatment must be one of {condition_order}")
-        condition_order = [condition for condition in condition_order if condition != exclude_treatment]
-    if not condition_order:
-        raise ValueError("At least one treatment must remain in the heatmap")
-
-    heatmap_matrices: dict[str, np.ndarray] = {}
-    all_fold_changes: list[float] = []
-    for donor in analysis.donors:
-        donor_matrix = []
-        for condition in condition_order:
-            row = []
-            for antibody in antibody_order:
-                baseline_measurement = analysis.results[(antibody, analysis.baseline_condition, donor)]
-                current_measurement = analysis.results[(antibody, condition, donor)]
-                baseline_value = _resolve_summary_value(baseline_measurement, summary_stat=summary_stat)
-                current_value = _resolve_summary_value(current_measurement, summary_stat=summary_stat)
-                if condition == analysis.baseline_condition and np.isfinite(baseline_value):
-                    fold_change = 0.0
-                elif (
-                    not np.isfinite(baseline_value)
-                    or baseline_value <= 0
-                    or not np.isfinite(current_value)
-                    or current_value <= 0
-                ):
-                    fold_change = np.nan
-                else:
-                    fold_change = float(np.log2(current_value / baseline_value))
-                row.append(fold_change)
-                if np.isfinite(fold_change):
-                    all_fold_changes.append(fold_change)
-            donor_matrix.append(row)
-        heatmap_matrices[donor] = np.array(donor_matrix, dtype=float)
-
-    color_limit = max(1.0, float(np.nanmax(np.abs(all_fold_changes)))) if all_fold_changes else 1.0
+    heatmap_payloads = build_summary_heatmap_payload(
+        analysis,
+        summary_stat=summary_stat,
+        exclude_treatment=exclude_treatment,
+    )
+    if not heatmap_payloads:
+        raise ValueError("At least one donor is required for the heatmap")
     stat_star_lookup = _build_stat_star_lookup(stat_results)
     fig, axes = plt.subplots(1, len(analysis.donors), figsize=(5.5 * len(analysis.donors), 6), constrained_layout=True)
     if len(analysis.donors) == 1:
         axes = [axes]
     for ax, donor in zip(axes, analysis.donors):
-        matrix = heatmap_matrices[donor]
+        payload = heatmap_payloads[donor]
+        matrix = payload.matrix
         annotation_labels = build_heatmap_annotation_labels(
             matrix,
-            row_labels=condition_order,
-            column_labels=antibody_order,
+            row_labels=payload.row_labels,
+            column_labels=payload.column_labels,
             star_getter=(
-                (lambda row_index, column_index, donor=donor, antibody_order=antibody_order: stat_star_lookup.get(
-                    (donor, condition_order[row_index], antibody_order[column_index])
-                ))
+                (
+                    lambda row_index, column_index, donor=donor, payload=payload: stat_star_lookup.get(
+                        (donor, payload.row_labels[row_index], payload.column_labels[column_index])
+                    )
+                )
                 if show_significance_stars and stat_star_lookup
                 else None
             ),
@@ -352,14 +317,14 @@ def plot_summary_heatmap(
             ax=ax,
             cmap="vlag",
             center=0,
-            vmin=-color_limit,
-            vmax=color_limit,
+            vmin=-payload.color_limit,
+            vmax=payload.color_limit,
             annot=annotation_labels,
             fmt="",
             linewidths=0.5,
             linecolor="white",
-            xticklabels=[resolved_antibody_labels[antibody] for antibody in antibody_order],
-            yticklabels=[display_condition_labels[condition] for condition in condition_order],
+            xticklabels=[resolved_antibody_labels[antibody] for antibody in payload.column_labels],
+            yticklabels=[display_condition_labels[condition] for condition in payload.row_labels],
             cbar=ax is axes[-1],
             cbar_kws={"label": f"Log2 fold change relative to {baseline_label}"},
         )
@@ -376,7 +341,7 @@ def plot_summary_heatmap(
         fontsize=14,
     )
     plt.show()
-    return heatmap_matrices
+    return {donor: payload.matrix for donor, payload in heatmap_payloads.items()}
 
 
 def plot_condition_brightness_debug(
@@ -419,7 +384,7 @@ def plot_condition_brightness_debug(
         antibody_values = []
         for donor in donor_list:
             try:
-                measurement = analysis.results[(antibody, condition, donor)]
+                measurement = analysis.get_result(antibody, condition, donor)
             except KeyError as exc:
                 raise KeyError(
                     f"Missing analysis result for antibody={antibody}, condition={condition}, donor={donor}"
@@ -455,7 +420,7 @@ def plot_condition_brightness_debug(
         image_row = donor_index * 2
         histogram_row = image_row + 1
         for column_index, antibody in enumerate(antibody_list):
-            measurement = analysis.results[(antibody, condition, donor)]
+            measurement = analysis.get_result(antibody, condition, donor)
             image = load_grayscale_tif(measurement.path)
             finite_pixels = image[np.isfinite(image)]
             if finite_pixels.size:

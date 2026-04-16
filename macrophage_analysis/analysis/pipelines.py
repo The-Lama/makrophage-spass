@@ -16,6 +16,7 @@ from ..config import (
     DEFAULT_DATA_ROOT,
     DEFAULT_DONOR_COLORS,
     DEFAULT_STARDIST_N_TILES,
+    ResultKey,
     MEASUREMENT_SCALE_BACKGROUND_RATIO,
     MEASUREMENT_SCALE_RAW_INTENSITY,
     MeasurementResult,
@@ -172,7 +173,7 @@ def _run_batch_analysis(
         data_root=data_root,
     )
 
-    results: dict[tuple[str, str, str], MeasurementResult] = {}
+    results: dict[ResultKey, MeasurementResult] = {}
     current_antibody = None
     for request in requests:
         if request.antibody != current_antibody:
@@ -194,7 +195,11 @@ def _run_batch_analysis(
             relative_to_background=relative_to_background,
             background_percentile=background_percentile,
         )
-        results[(request.antibody, request.condition, request.donor)] = _build_measurement_result(
+        results[ResultKey(
+            antibody=request.antibody,
+            condition=request.condition,
+            donor=request.donor,
+        )] = _build_measurement_result(
             request.path,
             raw_mean_intensities=mean_intensities,
             measurement_values=result_intensities,

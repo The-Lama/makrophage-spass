@@ -34,7 +34,7 @@ def build_stat_summary_table(
         for donor in analysis.donors:
             baseline_plot_values = grouped_values[(analysis.baseline_condition, donor)]
             for condition in analysis.conditions:
-                measurement = analysis.results[(antibody, condition, donor)]
+                measurement = analysis.get_result(antibody, condition, donor)
                 row: dict[str, float | int | str] = {
                     "antibody": antibody,
                     "condition": condition,
@@ -172,7 +172,7 @@ def build_morphology_table(
     frames: list[pd.DataFrame] = []
     for condition in condition_list:
         for donor in donor_list:
-            measurement = analysis.results[(antibody, condition, donor)]
+            measurement = analysis.get_result(antibody, condition, donor)
             frame = _build_morphology_measurement_frame(
                 measurement,
                 antibody=antibody,

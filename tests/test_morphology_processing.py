@@ -8,7 +8,7 @@ except ImportError:  # pragma: no cover - lightweight shell
     pd = None
 
 if pd is not None:
-    from macrophage_analysis.morphology_processing import (
+    from macrophage_analysis.analysis.morphology import (
         filter_morphology_points,
         prepare_morphology_scatter_points,
         sample_morphology_points,

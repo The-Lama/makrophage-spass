@@ -15,7 +15,7 @@ from macrophage_analysis.config import (
 )
 
 if np is not None:
-    from macrophage_analysis.fluorescence_processing import build_plot_frames, group_plot_values
+    from macrophage_analysis.analysis.fluorescence import build_plot_frames, group_plot_values
 
 
 @unittest.skipIf(np is None, "numpy is not installed in this environment")

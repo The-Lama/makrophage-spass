@@ -5,7 +5,7 @@ import unittest
 from pathlib import Path
 
 from macrophage_analysis.config import AntibodySpec
-from macrophage_analysis.planning import (
+from macrophage_analysis.analysis.planning import (
     build_condition_comparison_requests,
     build_measurement_requests,
 )

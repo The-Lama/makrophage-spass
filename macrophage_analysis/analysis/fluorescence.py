@@ -1,11 +1,9 @@
 from __future__ import annotations
 
-from typing import Iterable
-
 import numpy as np
 import pandas as pd
 
-from .config import BatchAnalysis
+from ..config import BatchAnalysis
 
 
 def prepare_plot_values(

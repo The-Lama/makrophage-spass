@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Iterable, Mapping
 
-from .config import (
+from ..config import (
     AntibodySpec,
     BatchAnalysis,
     ComparisonDonorResult,
@@ -20,7 +20,7 @@ from .config import (
     MEASUREMENT_SCALE_RAW_INTENSITY,
     MeasurementResult,
 )
-from .core import (
+from .extraction import (
     divide_by_background,
     estimate_background_intensity,
     extract_cell_measurements,

@@ -9,7 +9,7 @@ import pandas as pd
 import seaborn as sns
 from stardist.plot import render_label
 
-from .config import (
+from ..config import (
     BatchAnalysis,
     ConditionComparison,
     DEFAULT_ANTIBODY_ORDER,
@@ -24,10 +24,10 @@ from .config import (
     default_condition_display_label,
     wrap_display_label,
 )
-from .core import load_grayscale_tif
-from .fluorescence_processing import build_plot_frames
-from .plotting_utils import build_heatmap_annotation_labels
-from .tables import build_stat_summary_table, display_stat_summary_tables as _display_stat_summary_tables
+from ..analysis.extraction import load_grayscale_tif
+from ..analysis.fluorescence import build_plot_frames
+from .utils import build_heatmap_annotation_labels
+from ..analysis.tables import build_stat_summary_table, display_stat_summary_tables as _display_stat_summary_tables
 
 
 def _wrap_filename(filename: str, *, width: int = 36) -> str:

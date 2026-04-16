@@ -8,7 +8,7 @@ except ImportError:  # pragma: no cover - exercised only in lightweight environm
     pd = None
 
 if pd is not None:
-    from macrophage_analysis.tables import format_stat_summary_tables
+    from macrophage_analysis.analysis.tables import format_stat_summary_tables
 
 
 @unittest.skipIf(pd is None, "pandas is not installed in this environment")

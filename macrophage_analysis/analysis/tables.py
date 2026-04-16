@@ -5,7 +5,7 @@ from typing import Iterable, Mapping
 import numpy as np
 import pandas as pd
 
-from .config import (
+from ..config import (
     BatchAnalysis,
     DEFAULT_ANTIBODY_ORDER,
     DEFAULT_BASELINE_CONDITION,
@@ -13,8 +13,8 @@ from .config import (
     MeasurementResult,
     default_condition_display_label,
 )
-from .fluorescence_processing import group_plot_values
-from .stats import mann_whitney_u_test, pvalue_to_stars
+from .fluorescence import group_plot_values
+from ..stats import mann_whitney_u_test, pvalue_to_stars
 
 
 def build_stat_summary_table(

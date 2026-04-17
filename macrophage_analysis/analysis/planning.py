@@ -4,7 +4,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable, Mapping
 
-from ..config import AntibodySpec, DEFAULT_DATA_ROOT
+from ..defaults import DEFAULT_DATA_ROOT
+from ..models import AntibodySpec
 from ..io.catalog import build_image_catalog
 
 

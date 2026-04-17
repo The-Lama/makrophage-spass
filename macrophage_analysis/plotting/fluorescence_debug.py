@@ -8,9 +8,7 @@ import seaborn as sns
 from stardist.plot import render_label
 
 from ..analysis.extraction import load_grayscale_tif
-from ..config import (
-    BatchAnalysis,
-    ConditionComparison,
+from ..defaults import (
     DEFAULT_DONOR_COLORS,
     DEFAULT_SEABORN_THEME,
 )
@@ -19,6 +17,7 @@ from ..labels import (
     default_measurement_axis_label,
     default_measurement_title_label,
 )
+from ..models import BatchAnalysis, ConditionComparison
 from ._shared import _wrap_filename
 
 

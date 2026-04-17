@@ -3,7 +3,7 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
-from ..config import BatchAnalysis
+from ..models import BatchAnalysis
 
 
 def prepare_plot_values(

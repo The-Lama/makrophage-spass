@@ -3,9 +3,11 @@ from __future__ import annotations
 import re
 import textwrap
 
-from .config import (
+from .defaults import (
     DEFAULT_CONDITION_DISPLAY_LABELS,
     DEFAULT_DESCRIPTIVE_CONDITION_DISPLAY_LABELS,
+)
+from .models import (
     MEASUREMENT_SCALE_BACKGROUND_RATIO,
     MEASUREMENT_SCALE_RAW_INTENSITY,
 )

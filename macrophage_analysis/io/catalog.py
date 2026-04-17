@@ -5,8 +5,9 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Iterable
 
+from ..defaults import DEFAULT_DATA_ROOT
+
 SUPPORTED_IMAGE_SUFFIXES = (".tif", ".tiff")
-DEFAULT_DATA_ROOT = Path("raw_data")
 
 
 @dataclass(frozen=True)

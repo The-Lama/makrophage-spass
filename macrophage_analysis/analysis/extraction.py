@@ -11,7 +11,7 @@ from csbdeep.utils import normalize
 from skimage.measure import regionprops_table
 from stardist.models import StarDist2D
 
-from ..config import DEFAULT_DATA_ROOT
+from ..defaults import DEFAULT_DATA_ROOT
 from ..io.catalog import build_image_catalog
 
 

@@ -4,7 +4,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from ..config import BatchAnalysis, MeasurementResult
+from ..models import BatchAnalysis, MeasurementResult
 
 
 @dataclass(frozen=True)

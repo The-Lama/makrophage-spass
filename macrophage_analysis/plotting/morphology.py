@@ -7,8 +7,9 @@ import numpy as np
 import pandas as pd
 import seaborn as sns
 
-from ..config import BatchAnalysis, DEFAULT_SEABORN_THEME
+from ..defaults import DEFAULT_SEABORN_THEME
 from ..labels import default_condition_display_label
+from ..models import BatchAnalysis
 from ..analysis.morphology import prepare_morphology_scatter_points
 from ..analysis.morphology_tables import (
     build_morphology_fold_change_table,

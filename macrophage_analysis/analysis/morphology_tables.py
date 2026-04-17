@@ -5,8 +5,9 @@ from typing import Iterable
 import numpy as np
 import pandas as pd
 
-from ..config import BatchAnalysis, DEFAULT_DONOR_DISPLAY_LABELS, MeasurementResult
+from ..defaults import DEFAULT_DONOR_DISPLAY_LABELS
 from ..labels import default_condition_display_label
+from ..models import BatchAnalysis, MeasurementResult
 from ..stats import mann_whitney_u_test, pvalue_to_stars
 
 __all__ = [

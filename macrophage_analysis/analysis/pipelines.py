@@ -3,11 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Iterable, Mapping
 
-from ..config import (
-    AntibodySpec,
-    BatchAnalysis,
-    ComparisonDonorResult,
-    ConditionComparison,
+from ..defaults import (
     DEFAULT_ANTIBODY_ORDER,
     DEFAULT_ANTIBODY_SPECS,
     DEFAULT_BASELINE_CONDITION,
@@ -16,10 +12,16 @@ from ..config import (
     DEFAULT_DATA_ROOT,
     DEFAULT_DONOR_COLORS,
     DEFAULT_STARDIST_N_TILES,
-    ResultKey,
+)
+from ..models import (
+    AntibodySpec,
+    BatchAnalysis,
+    ComparisonDonorResult,
+    ConditionComparison,
     MEASUREMENT_SCALE_BACKGROUND_RATIO,
     MEASUREMENT_SCALE_RAW_INTENSITY,
     MeasurementResult,
+    ResultKey,
 )
 from .extraction import (
     divide_by_background,

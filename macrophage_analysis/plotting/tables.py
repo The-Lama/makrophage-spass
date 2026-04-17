@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Iterable, Mapping
 
-from ..config import DEFAULT_ANTIBODY_ORDER, DEFAULT_BASELINE_CONDITION
+from ..defaults import DEFAULT_ANTIBODY_ORDER, DEFAULT_BASELINE_CONDITION
 
 __all__ = ["display_stat_summary_tables"]
 

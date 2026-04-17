@@ -5,13 +5,13 @@ from typing import Iterable, Mapping
 import numpy as np
 import pandas as pd
 
-from ..config import (
-    BatchAnalysis,
+from ..defaults import (
     DEFAULT_ANTIBODY_ORDER,
     DEFAULT_BASELINE_CONDITION,
     DEFAULT_DONOR_DISPLAY_LABELS,
 )
 from ..labels import default_condition_display_label
+from ..models import BatchAnalysis
 from ..stats import mann_whitney_u_test, pvalue_to_stars
 from .fluorescence import group_plot_values
 

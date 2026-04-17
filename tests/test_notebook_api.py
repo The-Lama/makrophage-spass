@@ -31,7 +31,7 @@ class NotebookApiTests(unittest.TestCase):
     def test_notebooks_only_use_notebook_facing_top_level_names(self) -> None:
         notebook_api = set(ma.__all__)
         notebook_paths = sorted(
-            Path("/home/alex/projects/makrophage-spass").glob("*.ipynb")
+            Path("/home/alex/projects/makrophage-spass/notebooks").glob("*.ipynb")
         )
         used_names: dict[str, set[str]] = {}
         for notebook_path in notebook_paths:

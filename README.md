@@ -1,6 +1,6 @@
 # Makrophage Notebook Setup
 
-This repository packages a JupyterLab environment for the image-analysis notebook in this folder. The Docker image already contains TensorFlow plus the Python packages from `requirements.txt`:
+This repository packages a JupyterLab environment for the image-analysis notebooks in `notebooks/`. The Docker image already contains TensorFlow plus the Python packages from `requirements.txt`:
 
 - `jupyterlab`
 - `stardist`
@@ -86,7 +86,7 @@ After startup, the terminal will print a URL that looks like this:
 http://127.0.0.1:8888/lab?token=...
 ```
 
-Open that link in the browser, then open `Spassprojekt.ipynb` in JupyterLab.
+Open that link in the browser, then open `notebooks/Spassprojekt.ipynb` in JupyterLab.
 
 ### 5. Stop the project
 

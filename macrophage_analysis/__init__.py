@@ -7,8 +7,6 @@ _NOTEBOOK_EXPORT_GROUPS: tuple[tuple[str, tuple[str, ...]], ...] = (
         ".defaults",
         (
             "DEFAULT_ANTIBODY_ORDER",
-            "DEFAULT_ANTIBODY_SPECS",
-            "DEFAULT_BASELINE_CONDITION",
             "DEFAULT_COMPARISON_CHANNEL",
             "DEFAULT_COMPARISON_MARKER_PREFIX",
             "DEFAULT_CONDITIONS",
@@ -16,15 +14,8 @@ _NOTEBOOK_EXPORT_GROUPS: tuple[tuple[str, tuple[str, ...]], ...] = (
         ),
     ),
     (
-        ".analysis.fluorescence_tables",
-        (
-            "build_stat_summary_table",
-        ),
-    ),
-    (
         ".analysis.morphology_tables",
         (
-            "build_morphology_fold_change_table",
             "build_morphology_summary_table",
         ),
     ),
@@ -47,7 +38,6 @@ _NOTEBOOK_EXPORT_GROUPS: tuple[tuple[str, tuple[str, ...]], ...] = (
         (
             "plot_area_intensity_scatter",
             "plot_morphology_heatmap",
-            "plot_morphology_scatter",
         ),
     ),
     (
@@ -64,12 +54,6 @@ _NOTEBOOK_EXPORT_GROUPS: tuple[tuple[str, tuple[str, ...]], ...] = (
             "plot_condition_comparison",
             "plot_condition_histograms",
             "plot_condition_relative_background_debug",
-        ),
-    ),
-    (
-        ".io",
-        (
-            "sort_microscopy_images",
         ),
     ),
 )

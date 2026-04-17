@@ -19,6 +19,10 @@ class NotebookApiTests(unittest.TestCase):
         self.assertNotIn("BatchAnalysis", public_names)
         self.assertNotIn("find_image_path", public_names)
         self.assertNotIn("load_stardist_model", public_names)
+        self.assertNotIn("build_stat_summary_table", public_names)
+        self.assertNotIn("build_morphology_fold_change_table", public_names)
+        self.assertNotIn("plot_morphology_scatter", public_names)
+        self.assertNotIn("sort_microscopy_images", public_names)
 
     def test_notebook_default_export_resolves(self) -> None:
         donors = ma.DEFAULT_DONORS
@@ -50,6 +54,7 @@ class NotebookApiTests(unittest.TestCase):
             if names - notebook_api
         }
         self.assertEqual(unexpected, {})
+        self.assertEqual(notebook_api, set().union(*used_names.values()))
 
 
 if __name__ == "__main__":

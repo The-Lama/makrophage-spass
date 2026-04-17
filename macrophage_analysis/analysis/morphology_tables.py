@@ -1,163 +1,19 @@
 from __future__ import annotations
 
-from typing import Iterable, Mapping
+from typing import Iterable
 
 import numpy as np
 import pandas as pd
 
-from ..config import (
-    BatchAnalysis,
-    DEFAULT_ANTIBODY_ORDER,
-    DEFAULT_BASELINE_CONDITION,
-    DEFAULT_DONOR_DISPLAY_LABELS,
-    MeasurementResult,
-    default_condition_display_label,
-)
-from .fluorescence import group_plot_values
+from ..config import BatchAnalysis, DEFAULT_DONOR_DISPLAY_LABELS, MeasurementResult
+from ..labels import default_condition_display_label
 from ..stats import mann_whitney_u_test, pvalue_to_stars
 
-
-def build_stat_summary_table(
-    analysis: BatchAnalysis,
-    *,
-    plot_log_scale: bool = False,
-    min_positive_intensity: float | None = None,
-) -> pd.DataFrame:
-    rows: list[dict[str, float | int | str]] = []
-    for antibody in analysis.antibody_order:
-        grouped_values = group_plot_values(
-            analysis,
-            antibody,
-            plot_log_scale=plot_log_scale,
-            min_positive_intensity=min_positive_intensity,
-        )
-        for donor in analysis.donors:
-            baseline_plot_values = grouped_values[(analysis.baseline_condition, donor)]
-            for condition in analysis.conditions:
-                measurement = analysis.get_result(antibody, condition, donor)
-                row: dict[str, float | int | str] = {
-                    "antibody": antibody,
-                    "condition": condition,
-                    "donor": donor,
-                    "cell_count": measurement.cell_count,
-                    "mean_intensity": measurement.overall_mean,
-                    "median_intensity": measurement.overall_median,
-                    "u_stat": float("nan"),
-                    "p_value": float("nan"),
-                    "stars": "baseline" if condition == analysis.baseline_condition else "NA",
-                }
-                if condition != analysis.baseline_condition:
-                    current_plot_values = grouped_values[(condition, donor)]
-                    u_stat, p_value = mann_whitney_u_test(baseline_plot_values, current_plot_values)
-                    row["u_stat"] = u_stat
-                    row["p_value"] = p_value
-                    row["stars"] = pvalue_to_stars(p_value)
-                rows.append(row)
-
-    stat_table = pd.DataFrame(rows)
-    stat_table["condition"] = pd.Categorical(stat_table["condition"], categories=analysis.conditions, ordered=True)
-    stat_table["donor"] = pd.Categorical(stat_table["donor"], categories=analysis.donors, ordered=True)
-    stat_table["antibody"] = pd.Categorical(
-        stat_table["antibody"], categories=analysis.antibody_order, ordered=True
-    )
-    return stat_table.sort_values(["antibody", "condition", "donor"]).reset_index(drop=True)
-
-
-def format_stat_summary_tables(
-    stat_table: pd.DataFrame,
-    *,
-    antibody_order: Iterable[str] = DEFAULT_ANTIBODY_ORDER,
-    baseline_condition: str = DEFAULT_BASELINE_CONDITION,
-    condition_labels: Mapping[str, str] | None = None,
-    donor_labels: Mapping[str, str] | None = None,
-) -> list[tuple[str, pd.DataFrame]]:
-    resolved_condition_labels = {
-        condition: condition_labels[condition]
-        if condition_labels is not None and condition in condition_labels
-        else default_condition_display_label(condition)
-        for condition in stat_table["condition"].astype(str).unique()
-    }
-    resolved_donor_labels = {
-        donor: donor_labels[donor]
-        if donor_labels is not None and donor in donor_labels
-        else DEFAULT_DONOR_DISPLAY_LABELS.get(donor, donor)
-        for donor in stat_table["donor"].astype(str).unique()
-    }
-
-    display_columns = [
-        "condition",
-        "donor",
-        "cell_count",
-        "median_intensity",
-        "mean_intensity",
-        "p_value",
-        "stars",
-    ]
-    renamed_columns = {
-        "condition": "Condition",
-        "donor": "Donor",
-        "cell_count": "Cells",
-        "median_intensity": "Median",
-        "mean_intensity": "Mean",
-        "p_value": "p-value",
-        "stars": "Sig.",
-    }
-
-    formatted_tables: list[tuple[str, pd.DataFrame]] = []
-    for antibody in antibody_order:
-        antibody_stats = stat_table.loc[stat_table["antibody"] == antibody, display_columns].copy()
-        if antibody_stats.empty:
-            continue
-        baseline_mask = antibody_stats["condition"].astype(str).eq(baseline_condition)
-        antibody_stats["condition"] = antibody_stats["condition"].astype(str).map(
-            lambda condition: resolved_condition_labels.get(condition, condition)
-        )
-        antibody_stats["donor"] = antibody_stats["donor"].astype(str).map(
-            lambda donor: resolved_donor_labels.get(donor, donor)
-        )
-        antibody_stats["median_intensity"] = antibody_stats["median_intensity"].map(
-            lambda value: f"{value:.2f}"
-        )
-        antibody_stats["mean_intensity"] = antibody_stats["mean_intensity"].map(
-            lambda value: f"{value:.2f}"
-        )
-        antibody_stats["p_value"] = np.where(
-            baseline_mask,
-            "baseline",
-            antibody_stats["p_value"].map(lambda value: f"{value:.3g}"),
-        )
-        formatted_tables.append((antibody, antibody_stats.rename(columns=renamed_columns)))
-    return formatted_tables
-
-
-def display_stat_summary_tables(
-    stat_table: pd.DataFrame,
-    *,
-    antibody_order: Iterable[str] = DEFAULT_ANTIBODY_ORDER,
-    baseline_condition: str = DEFAULT_BASELINE_CONDITION,
-    condition_labels: Mapping[str, str] | None = None,
-    donor_labels: Mapping[str, str] | None = None,
-) -> None:
-    formatted_tables = format_stat_summary_tables(
-        stat_table,
-        antibody_order=antibody_order,
-        baseline_condition=baseline_condition,
-        condition_labels=condition_labels,
-        donor_labels=donor_labels,
-    )
-    try:
-        from IPython.display import Markdown, display
-    except ImportError:
-        Markdown = None
-        display = None
-
-    for antibody, formatted_stats in formatted_tables:
-        if Markdown is not None and display is not None:
-            display(Markdown(f"**{antibody}**"))
-            display(Markdown(f"```text\n{formatted_stats.to_string(index=False)}\n```"))
-        else:
-            print(f"\n{antibody}")
-            print(formatted_stats.to_string(index=False))
+__all__ = [
+    "build_morphology_fold_change_table",
+    "build_morphology_summary_table",
+    "build_morphology_table",
+]
 
 
 def build_morphology_table(
@@ -185,7 +41,11 @@ def build_morphology_table(
     morphology_df = pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
     if morphology_df.empty:
         return morphology_df
-    return _categorize_morphology_table(morphology_df, donor_list=donor_list, condition_list=condition_list)
+    return _categorize_morphology_table(
+        morphology_df,
+        donor_list=donor_list,
+        condition_list=condition_list,
+    )
 
 
 def _build_morphology_measurement_frame(
@@ -207,7 +67,9 @@ def _build_morphology_measurement_frame(
     if not (intensities.size == areas.size == eccentricities.size):
         raise ValueError(f"Mismatched cell metrics for {antibody} / {condition} / {donor}")
 
-    valid_index = np.flatnonzero(np.isfinite(intensities) & np.isfinite(areas) & np.isfinite(eccentricities))
+    valid_index = np.flatnonzero(
+        np.isfinite(intensities) & np.isfinite(areas) & np.isfinite(eccentricities)
+    )
     if valid_index.size == 0:
         return None
 
@@ -245,7 +107,11 @@ def _categorize_morphology_table(
         categories=[default_condition_display_label(condition) for condition in condition_list],
         ordered=True,
     )
-    categorized_df["donor"] = pd.Categorical(categorized_df["donor"], categories=donor_list, ordered=True)
+    categorized_df["donor"] = pd.Categorical(
+        categorized_df["donor"],
+        categories=donor_list,
+        ordered=True,
+    )
     categorized_df["donor_label"] = pd.Categorical(
         categorized_df["donor_label"],
         categories=[DEFAULT_DONOR_DISPLAY_LABELS.get(donor, donor) for donor in donor_list],
@@ -261,7 +127,12 @@ def build_morphology_summary_table(
     donors: Iterable[str] | None = None,
     conditions: Iterable[str] | None = None,
 ) -> pd.DataFrame:
-    morphology_df = build_morphology_table(analysis, antibody=antibody, donors=donors, conditions=conditions)
+    morphology_df = build_morphology_table(
+        analysis,
+        antibody=antibody,
+        donors=donors,
+        conditions=conditions,
+    )
     if morphology_df.empty:
         return pd.DataFrame(
             columns=[
@@ -276,7 +147,10 @@ def build_morphology_summary_table(
             ]
         )
     return (
-        morphology_df.groupby(["condition", "condition_label", "donor", "donor_label"], observed=True)
+        morphology_df.groupby(
+            ["condition", "condition_label", "donor", "donor_label"],
+            observed=True,
+        )
         .agg(
             cell_count=("cell_index", "count"),
             median_intensity=("intensity", "median"),
@@ -368,7 +242,10 @@ def _add_morphology_stat_columns(
     per_donor: bool,
 ) -> pd.DataFrame:
     grouping_columns = ["condition"] if not per_donor else ["donor", "condition"]
-    group_lookup = _build_morphology_group_lookup(morphology_df, grouping_columns=grouping_columns)
+    group_lookup = _build_morphology_group_lookup(
+        morphology_df,
+        grouping_columns=grouping_columns,
+    )
     stats_df = pd.DataFrame(
         [
             _build_morphology_stat_row(
@@ -394,7 +271,12 @@ def build_morphology_fold_change_table(
     summary_stat: str = "median",
     per_donor: bool = False,
 ) -> pd.DataFrame:
-    morphology_df = build_morphology_table(analysis, antibody=antibody, donors=donors, conditions=conditions)
+    morphology_df = build_morphology_table(
+        analysis,
+        antibody=antibody,
+        donors=donors,
+        conditions=conditions,
+    )
     if morphology_df.empty:
         raise ValueError(f"No valid morphology data available for {antibody}")
     resolved_baseline_condition = baseline_condition or analysis.baseline_condition
@@ -403,7 +285,11 @@ def build_morphology_fold_change_table(
             f"baseline_condition must be present in the morphology table: {resolved_baseline_condition}"
         )
     summary_function = _morphology_summary_function(summary_stat)
-    group_columns = ["condition", "condition_label"] if not per_donor else ["donor", "donor_label", "condition", "condition_label"]
+    group_columns = (
+        ["condition", "condition_label"]
+        if not per_donor
+        else ["donor", "donor_label", "condition", "condition_label"]
+    )
     summary_df = (
         morphology_df.groupby(group_columns, observed=True)
         .agg(
@@ -417,7 +303,9 @@ def build_morphology_fold_change_table(
 
     metrics = ("area", "eccentricity", "cd206_brightness")
     if per_donor:
-        baseline_rows = summary_df.loc[summary_df["condition"].astype(str) == resolved_baseline_condition]
+        baseline_rows = summary_df.loc[
+            summary_df["condition"].astype(str) == resolved_baseline_condition
+        ]
         baseline_donors = set(baseline_rows["donor"].astype(str))
         missing_donors = sorted(set(summary_df["donor"].astype(str)) - baseline_donors)
         if missing_donors:
@@ -426,7 +314,12 @@ def build_morphology_fold_change_table(
                 + ", ".join(missing_donors)
             )
         for metric in metrics:
-            donor_baselines = dict(zip(baseline_rows["donor"].astype(str), baseline_rows[metric].astype(float)))
+            donor_baselines = dict(
+                zip(
+                    baseline_rows["donor"].astype(str),
+                    baseline_rows[metric].astype(float),
+                )
+            )
             baseline_values = summary_df["donor"].astype(str).map(donor_baselines).astype(float)
             metric_values = summary_df[metric].astype(float)
             valid = (

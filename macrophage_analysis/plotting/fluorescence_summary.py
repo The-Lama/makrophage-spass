@@ -8,14 +8,16 @@ import pandas as pd
 import seaborn as sns
 
 from ..analysis.fluorescence import build_plot_frames
+from ..analysis.fluorescence_tables import build_stat_summary_table
 from ..analysis.heatmaps import build_summary_heatmap_payload
-from ..analysis.tables import build_stat_summary_table, display_stat_summary_tables as _display_stat_summary_tables
 from ..config import (
     BatchAnalysis,
     DEFAULT_ANTIBODY_ORDER,
     DEFAULT_BASELINE_CONDITION,
     DEFAULT_DONOR_DISPLAY_LABELS,
     DEFAULT_SEABORN_THEME,
+)
+from ..labels import (
     default_condition_display_label,
     default_measurement_axis_label,
     default_measurement_summary_label,
@@ -23,6 +25,7 @@ from ..config import (
     wrap_display_label,
 )
 from ._shared import _build_stat_star_lookup, _deduplicate_legend
+from .tables import display_stat_summary_tables as _display_stat_summary_tables
 from .utils import build_heatmap_annotation_labels
 
 

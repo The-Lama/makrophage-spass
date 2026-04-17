@@ -6,6 +6,8 @@ from macrophage_analysis.config import (
     MEASUREMENT_SCALE_BACKGROUND_RATIO,
     MEASUREMENT_SCALE_RAW_INTENSITY,
     MeasurementResult,
+)
+from macrophage_analysis.labels import (
     default_measurement_axis_label,
     default_measurement_summary_label,
     default_measurement_title_label,

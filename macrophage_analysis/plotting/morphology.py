@@ -7,14 +7,15 @@ import numpy as np
 import pandas as pd
 import seaborn as sns
 
-from ..config import BatchAnalysis, DEFAULT_SEABORN_THEME, default_condition_display_label
+from ..config import BatchAnalysis, DEFAULT_SEABORN_THEME
+from ..labels import default_condition_display_label
 from ..analysis.morphology import prepare_morphology_scatter_points
-from .utils import build_heatmap_annotation_labels
-from ..analysis.tables import (
+from ..analysis.morphology_tables import (
     build_morphology_fold_change_table,
     build_morphology_summary_table,
     build_morphology_table,
 )
+from .utils import build_heatmap_annotation_labels
 
 
 def plot_morphology_heatmap(

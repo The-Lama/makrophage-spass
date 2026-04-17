@@ -1,7 +1,8 @@
 from __future__ import annotations
 
+from pathlib import Path
+import re
 import unittest
-import warnings
 
 import macrophage_analysis as ma
 
@@ -19,22 +20,36 @@ class NotebookApiTests(unittest.TestCase):
         self.assertNotIn("find_image_path", public_names)
         self.assertNotIn("load_stardist_model", public_names)
 
-    def test_notebook_default_export_does_not_warn(self) -> None:
-        with warnings.catch_warnings(record=True) as caught:
-            warnings.simplefilter("always")
-            donors = ma.DEFAULT_DONORS
-
+    def test_notebook_default_export_resolves(self) -> None:
+        donors = ma.DEFAULT_DONORS
         self.assertEqual(tuple(donors), ("D45", "D47"))
-        self.assertEqual(caught, [])
 
-    def test_compatibility_export_warns_and_resolves(self) -> None:
-        with warnings.catch_warnings(record=True) as caught:
-            warnings.simplefilter("always")
-            batch_analysis = ma.BatchAnalysis
+    def test_non_notebook_export_is_not_available_top_level(self) -> None:
+        with self.assertRaises(AttributeError):
+            _ = ma.BatchAnalysis
 
-        self.assertEqual(batch_analysis.__name__, "BatchAnalysis")
-        self.assertTrue(any(issubclass(warning.category, FutureWarning) for warning in caught))
-        self.assertIn("macrophage_analysis.models", str(caught[0].message))
+    def test_notebooks_only_use_notebook_facing_top_level_names(self) -> None:
+        notebook_api = set(ma.__all__)
+        notebook_paths = sorted(
+            Path("/home/alex/projects/makrophage-spass").glob("*.ipynb")
+        )
+        used_names: dict[str, set[str]] = {}
+        for notebook_path in notebook_paths:
+            names = set(
+                re.findall(
+                    r"\bma\.([A-Za-z_][A-Za-z0-9_]*)",
+                    notebook_path.read_text(encoding="utf-8"),
+                )
+            )
+            if names:
+                used_names[notebook_path.name] = names
+
+        unexpected = {
+            notebook_name: sorted(names - notebook_api)
+            for notebook_name, names in used_names.items()
+            if names - notebook_api
+        }
+        self.assertEqual(unexpected, {})
 
 
 if __name__ == "__main__":

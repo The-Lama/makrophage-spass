@@ -11,7 +11,7 @@ except ImportError:  # pragma: no cover - exercised only in lightweight environm
     np = None
     pd = None
 
-from macrophage_analysis.config import (
+from macrophage_analysis.models import (
     AntibodySpec,
     BatchAnalysis,
     MeasurementResult,

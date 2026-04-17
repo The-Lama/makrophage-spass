@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import unittest
 
-from macrophage_analysis.config import (
+from macrophage_analysis.models import (
     MEASUREMENT_SCALE_BACKGROUND_RATIO,
     MEASUREMENT_SCALE_RAW_INTENSITY,
     MeasurementResult,

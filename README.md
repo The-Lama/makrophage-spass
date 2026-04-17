@@ -86,7 +86,7 @@ After startup, the terminal will print a URL that looks like this:
 http://127.0.0.1:8888/lab?token=...
 ```
 
-Open that link in the browser, then open `notebooks/Spassprojekt.ipynb` in JupyterLab.
+Open that link in the browser, then open `notebooks/fluorescence_analysis_workflow.ipynb` in JupyterLab.
 
 ### 5. Stop the project
 

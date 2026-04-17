@@ -63,10 +63,17 @@ class HeatmapOptionTests(unittest.TestCase):
         )
 
     def _build_morphology_analysis(self) -> BatchAnalysis:
-        def measurement(path: str, intensity_start: float, area_start: float, eccentricity_start: float) -> MeasurementResult:
+        def measurement(
+            path: str,
+            intensity_start: float,
+            area_start: float,
+            eccentricity_start: float,
+            solidity_start: float,
+        ) -> MeasurementResult:
             intensity_values = np.arange(intensity_start, intensity_start + 8, dtype=float)
             area_values = np.arange(area_start, area_start + 8, dtype=float)
             eccentricity_values = np.arange(eccentricity_start, eccentricity_start + 0.08, 0.01, dtype=float)
+            solidity_values = np.arange(solidity_start, solidity_start + 0.08, 0.01, dtype=float)
             return MeasurementResult(
                 path=Path(path),
                 cell_count=8,
@@ -76,6 +83,7 @@ class HeatmapOptionTests(unittest.TestCase):
                 measurement_median=float(np.median(intensity_values)),
                 areas=area_values,
                 eccentricities=eccentricity_values,
+                solidities=solidity_values,
             )
 
         return BatchAnalysis(
@@ -87,9 +95,9 @@ class HeatmapOptionTests(unittest.TestCase):
             donor_colors={"D45": "#000000"},
             measurement_scale=MEASUREMENT_SCALE_RAW_INTENSITY,
             results={
-                ResultKey("CD206", "M0", "D45"): measurement("m0.tif", 1.0, 10.0, 0.10),
-                ResultKey("CD206", "B68KCP2", "D45"): measurement("b68.tif", 101.0, 110.0, 0.50),
-                ResultKey("CD206", "T12CMNepiP4", "D45"): measurement("t12.tif", 201.0, 210.0, 0.70),
+                ResultKey("CD206", "M0", "D45"): measurement("m0.tif", 1.0, 10.0, 0.10, 0.91),
+                ResultKey("CD206", "B68KCP2", "D45"): measurement("b68.tif", 101.0, 110.0, 0.50, 0.61),
+                ResultKey("CD206", "T12CMNepiP4", "D45"): measurement("t12.tif", 201.0, 210.0, 0.70, 0.81),
             },
         )
 
@@ -190,6 +198,10 @@ class HeatmapOptionTests(unittest.TestCase):
         self.assertEqual(
             heatmap_mock.call_args.kwargs["yticklabels"],
             ["M0 (baseline)", "B68 KCP2", "CMN Melanocytes\nepidermis"],
+        )
+        self.assertEqual(
+            heatmap_mock.call_args.kwargs["xticklabels"],
+            ["Area", "Eccentricity", "Solidity", "CD206 brightness"],
         )
 
 

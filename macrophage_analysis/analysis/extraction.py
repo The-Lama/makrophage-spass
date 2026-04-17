@@ -78,16 +78,17 @@ def predict_stardist_labels(
 def extract_cell_measurements(
     image: np.ndarray,
     labels: np.ndarray,
-) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     props = regionprops_table(
         labels,
         intensity_image=image,
-        properties=("intensity_mean", "area", "eccentricity"),
+        properties=("intensity_mean", "area", "eccentricity", "solidity"),
     )
     return (
         np.asarray(props["intensity_mean"], dtype=float),
         np.asarray(props["area"], dtype=float),
         np.asarray(props["eccentricity"], dtype=float),
+        np.asarray(props["solidity"], dtype=float),
     )
 
 

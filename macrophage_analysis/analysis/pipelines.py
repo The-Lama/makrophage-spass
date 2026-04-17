@@ -39,11 +39,11 @@ def _segment_and_measure_image(
     *,
     model_name: str,
     n_tiles: tuple[int, int] | None,
-) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     image = load_grayscale_tif(image_path)
     labels, _ = predict_stardist_labels(image, model_name=model_name, n_tiles=n_tiles)
-    mean_intensities, areas, eccentricities = extract_cell_measurements(image, labels)
-    return image, labels, mean_intensities, areas, eccentricities
+    mean_intensities, areas, eccentricities, solidities = extract_cell_measurements(image, labels)
+    return image, labels, mean_intensities, areas, eccentricities, solidities
 
 
 def _normalize_measurement_values(
@@ -74,6 +74,7 @@ def _build_measurement_result(
     measurement_values: np.ndarray,
     areas: np.ndarray,
     eccentricities: np.ndarray,
+    solidities: np.ndarray,
     measurement_scale: str,
     background_intensity: float | None,
     background_percentile: float | None,
@@ -89,6 +90,7 @@ def _build_measurement_result(
         measurement_scale=measurement_scale,
         areas=areas,
         eccentricities=eccentricities,
+        solidities=solidities,
         background_intensity=background_intensity,
         background_percentile=background_percentile,
     )
@@ -115,7 +117,7 @@ def extract_condition_comparison(
     )
 
     for request in requests:
-        image, labels, mean_intensities, _, _ = _segment_and_measure_image(
+        image, labels, mean_intensities, _, _, _ = _segment_and_measure_image(
             request.path,
             model_name=model_name,
             n_tiles=n_tiles,
@@ -181,7 +183,7 @@ def _run_batch_analysis(
                 message += " relative to image background"
             print(f"{message}...")
 
-        image, labels, mean_intensities, areas, eccentricities = _segment_and_measure_image(
+        image, labels, mean_intensities, areas, eccentricities, solidities = _segment_and_measure_image(
             request.path,
             model_name=model_name,
             n_tiles=n_tiles,
@@ -203,6 +205,7 @@ def _run_batch_analysis(
             measurement_values=result_intensities,
             areas=areas,
             eccentricities=eccentricities,
+            solidities=solidities,
             measurement_scale=measurement_scale,
             background_intensity=background_intensity,
             background_percentile=background_percentile if relative_to_background else None,

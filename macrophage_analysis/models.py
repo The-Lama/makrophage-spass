@@ -61,6 +61,7 @@ class MeasurementResult:
     measurement_scale: str = MEASUREMENT_SCALE_RAW_INTENSITY
     areas: "np.ndarray | None" = None
     eccentricities: "np.ndarray | None" = None
+    solidities: "np.ndarray | None" = None
     background_intensity: float | None = None
     background_percentile: float | None = None
 

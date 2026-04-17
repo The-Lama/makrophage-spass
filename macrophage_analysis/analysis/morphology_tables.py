@@ -56,7 +56,7 @@ def _build_morphology_measurement_frame(
     condition: str,
     donor: str,
 ) -> pd.DataFrame | None:
-    if measurement.areas is None or measurement.eccentricities is None:
+    if measurement.areas is None or measurement.eccentricities is None or measurement.solidities is None:
         raise ValueError(
             "This BatchAnalysis does not include morphology metrics. "
             "Rerun extract_single_cell_fluorescence after updating the macrophage_analysis package."
@@ -65,11 +65,12 @@ def _build_morphology_measurement_frame(
     intensities = np.asarray(measurement.measurement_values, dtype=float)
     areas = np.asarray(measurement.areas, dtype=float)
     eccentricities = np.asarray(measurement.eccentricities, dtype=float)
-    if not (intensities.size == areas.size == eccentricities.size):
+    solidities = np.asarray(measurement.solidities, dtype=float)
+    if not (intensities.size == areas.size == eccentricities.size == solidities.size):
         raise ValueError(f"Mismatched cell metrics for {antibody} / {condition} / {donor}")
 
     valid_index = np.flatnonzero(
-        np.isfinite(intensities) & np.isfinite(areas) & np.isfinite(eccentricities)
+        np.isfinite(intensities) & np.isfinite(areas) & np.isfinite(eccentricities) & np.isfinite(solidities)
     )
     if valid_index.size == 0:
         return None
@@ -85,6 +86,7 @@ def _build_morphology_measurement_frame(
             "intensity": intensities[valid_index],
             "area": areas[valid_index],
             "eccentricity": eccentricities[valid_index],
+            "solidity": solidities[valid_index],
             "path": str(measurement.path),
             "filename": measurement.path.name,
         }
@@ -145,6 +147,7 @@ def build_morphology_summary_table(
                 "median_intensity",
                 "median_area",
                 "median_eccentricity",
+                "median_solidity",
             ]
         )
     return (
@@ -157,6 +160,7 @@ def build_morphology_summary_table(
             median_intensity=("intensity", "median"),
             median_area=("area", "median"),
             median_eccentricity=("eccentricity", "median"),
+            median_solidity=("solidity", "median"),
         )
         .reset_index()
     )
@@ -173,6 +177,7 @@ def _morphology_summary_function(summary_stat: str):
 MORPHOLOGY_METRIC_SOURCES = {
     "area": "area",
     "eccentricity": "eccentricity",
+    "solidity": "solidity",
     "cd206_brightness": "intensity",
 }
 
@@ -298,11 +303,12 @@ def build_morphology_fold_change_table(
             cd206_brightness=("intensity", summary_function),
             area=("area", summary_function),
             eccentricity=("eccentricity", summary_function),
+            solidity=("solidity", summary_function),
         )
         .reset_index()
     )
 
-    metrics = ("area", "eccentricity", "cd206_brightness")
+    metrics = ("area", "eccentricity", "solidity", "cd206_brightness")
     if per_donor:
         baseline_rows = summary_df.loc[
             summary_df["condition"].astype(str) == resolved_baseline_condition

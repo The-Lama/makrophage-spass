@@ -19,6 +19,14 @@ from ..analysis.morphology_tables import (
 from .utils import build_heatmap_annotation_labels
 
 
+def _ordered_present_values(series: pd.Series) -> list[object]:
+    non_null = series.dropna()
+    if isinstance(series.dtype, pd.CategoricalDtype):
+        present_values = set(non_null.tolist())
+        return [value for value in series.cat.categories if value in present_values]
+    return list(dict.fromkeys(non_null.tolist()))
+
+
 def plot_morphology_heatmap(
     analysis: BatchAnalysis,
     *,
@@ -64,24 +72,20 @@ def plot_morphology_heatmap(
     heatmap_columns = {
         "log2_fc_area": "Area",
         "log2_fc_eccentricity": "Eccentricity",
+        "log2_fc_solidity": "Solidity",
         "log2_fc_cd206_brightness": f"{antibody} brightness",
     }
     heatmap_metrics = {
         "log2_fc_area": "area",
         "log2_fc_eccentricity": "eccentricity",
+        "log2_fc_solidity": "solidity",
         "log2_fc_cd206_brightness": "cd206_brightness",
     }
     heatmap_metric_keys = list(heatmap_columns)
     if per_donor:
         comparison_label = f"each donor's {baseline_label}"
-        donor_order = [
-            donor for donor in list(fold_change_df["donor"].cat.categories) if donor in set(fold_change_df["donor"].astype(str))
-        ]
-        condition_order = [
-            condition
-            for condition in list(fold_change_df["condition"].cat.categories)
-            if condition in set(fold_change_df["condition"].astype(str))
-        ]
+        donor_order = _ordered_present_values(fold_change_df["donor"])
+        condition_order = _ordered_present_values(fold_change_df["condition"])
         finite_values = fold_change_df[list(heatmap_columns)].to_numpy(dtype=float)
         finite_values = finite_values[np.isfinite(finite_values)]
         color_limit = max(1.0, float(np.max(np.abs(finite_values)))) if finite_values.size else 1.0
@@ -235,8 +239,8 @@ def plot_area_intensity_scatter(
         raise ValueError("No morphology points remain after display percentile filtering")
 
     sns.set_theme(**DEFAULT_SEABORN_THEME)
-    condition_label_order = list(summary_df["condition_label"].cat.categories)
-    donor_label_order = list(summary_df["donor_label"].cat.categories)
+    condition_label_order = _ordered_present_values(summary_df["condition_label"])
+    donor_label_order = _ordered_present_values(summary_df["donor_label"])
     if split_by_donor:
         donor_label_order = [label for label in donor_label_order if (plot_df["donor_label"] == label).any()]
         fig, axes = plt.subplots(1, len(donor_label_order), figsize=(6.5 * len(donor_label_order), 5.8), sharex=True, sharey=True, constrained_layout=True)
@@ -311,7 +315,7 @@ def plot_morphology_scatter(
         raise ValueError("No morphology points remain after display percentile filtering")
 
     sns.set_theme(**DEFAULT_SEABORN_THEME)
-    donor_labels = list(plot_df["donor_label"].cat.categories)
+    donor_labels = _ordered_present_values(plot_df["donor_label"])
     fig, axes = plt.subplots(1, len(donor_labels), figsize=(6.5 * len(donor_labels), 5.5), sharex=True, sharey=True, constrained_layout=True)
     if len(donor_labels) == 1:
         axes = [axes]

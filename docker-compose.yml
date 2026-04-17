@@ -1,6 +1,8 @@
 services:
   jupyter:
     build: .
+    environment:
+      CUDA_VISIBLE_DEVICES: "-1"
     ports:
       - "8888:8888"
     volumes:

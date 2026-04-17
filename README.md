@@ -123,3 +123,19 @@ This GPU command does two things:
 
 - it switches the build to `Dockerfile.gpu`
 - it requests an NVIDIA GPU for the container
+
+GPU requirements:
+
+- `nvidia-smi` must work on the host before starting Docker
+- Docker must have NVIDIA Container Toolkit support enabled
+
+If the notebook fails with a TensorFlow error like `DNN library is not found`, the GPU container is not getting a working CUDA/cuDNN runtime from the host. In that case:
+
+1. verify `nvidia-smi` works on the host
+2. restart Docker after installing or updating NVIDIA Container Toolkit
+3. rebuild with the GPU command above
+4. if you just need the notebooks to work, fall back to the CPU command:
+
+```bash
+docker compose up --build
+```

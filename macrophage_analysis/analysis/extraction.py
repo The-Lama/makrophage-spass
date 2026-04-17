@@ -36,7 +36,7 @@ def find_image_path(
     )
 
 
-def load_grayscale_tif(image_path: str | Path) -> np.ndarray:
+def load_tif_image(image_path: str | Path) -> np.ndarray:
     tifffile_logger = logging.getLogger("tifffile")
     original_tifffile_level = tifffile_logger.level
 
@@ -51,8 +51,16 @@ def load_grayscale_tif(image_path: str | Path) -> np.ndarray:
         finally:
             tifffile_logger.setLevel(original_tifffile_level)
 
-    if image.ndim == 3:
-        image = image[:, :, 0]
+    return image
+
+
+def load_grayscale_tif(image_path: str | Path) -> np.ndarray:
+    image = load_tif_image(image_path)
+    while image.ndim > 2:
+        if image.ndim == 3 and image.shape[-1] in (1, 3, 4):
+            image = image[..., 0]
+        else:
+            image = image[0]
     return image
 
 

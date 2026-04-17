@@ -1,4 +1,5 @@
 jupyterlab
+ipywidgets
 matplotlib
 numpy<2.0.0
 pandas

@@ -7,7 +7,11 @@ import numpy as np
 import seaborn as sns
 from stardist.plot import render_label
 
-from ..analysis.extraction import load_grayscale_tif
+from ..analysis.extraction import (
+    load_grayscale_tif,
+    load_tif_image,
+    predict_stardist_labels,
+)
 from ..defaults import (
     DEFAULT_DONOR_COLORS,
     DEFAULT_SEABORN_THEME,
@@ -79,6 +83,18 @@ def plot_condition_histograms(comparison: ConditionComparison) -> None:
         print(f"{donor} | cells analyzed: {result.cell_count} | mean: {result.overall_mean:.2f} | median: {result.overall_median:.2f}")
 
 
+def _prepare_original_display_image(image: np.ndarray) -> tuple[np.ndarray, dict[str, object]]:
+    display_image = np.asarray(image)
+    while display_image.ndim > 2:
+        if display_image.ndim == 3 and display_image.shape[-1] in (3, 4):
+            return display_image, {}
+        if display_image.ndim == 3 and display_image.shape[-1] == 1:
+            display_image = display_image[..., 0]
+        else:
+            display_image = display_image[0]
+    return display_image, {"cmap": "gray"}
+
+
 def plot_condition_brightness_debug(
     analysis: BatchAnalysis,
     condition: str,
@@ -88,6 +104,8 @@ def plot_condition_brightness_debug(
     image_upper_percentile: float = 99.8,
     histogram_upper_percentile: float = 99.5,
     histogram_bins: int = 40,
+    figure_width_per_marker: float = 10.0,
+    figure_height_per_donor: float = 5.5,
     value_label: str | None = None,
     figure_value_label: str | None = None,
     show_background: bool = False,
@@ -100,6 +118,10 @@ def plot_condition_brightness_debug(
         raise ValueError("histogram_upper_percentile must be between 0 and 100")
     if histogram_bins < 1:
         raise ValueError("histogram_bins must be at least 1")
+    if figure_width_per_marker <= 0:
+        raise ValueError("figure_width_per_marker must be greater than 0")
+    if figure_height_per_donor <= 0:
+        raise ValueError("figure_height_per_donor must be greater than 0")
 
     donor_list = list(analysis.donors if donors is None else donors)
     antibody_list = list(analysis.antibody_order if antibody_order is None else antibody_order)
@@ -138,15 +160,16 @@ def plot_condition_brightness_debug(
             lower, upper = 0.0, 1.0
         histogram_limits[antibody] = (lower, upper)
 
-    fig, axes = plt.subplots(
-        nrows=len(donor_list) * 2,
-        ncols=len(antibody_list),
-        figsize=(3.3 * len(antibody_list), 4.2 * len(donor_list)),
-        squeeze=False,
+    fig = plt.figure(
+        figsize=(
+            figure_width_per_marker * len(antibody_list),
+            figure_height_per_donor * len(donor_list),
+        ),
         constrained_layout=True,
     )
+    grid = fig.add_gridspec(nrows=len(donor_list) * 2, ncols=len(antibody_list) * 3)
     fig.suptitle(
-        f"{condition_label}: source image and {resolved_figure_value_label} by marker",
+        f"{condition_label}: original TIFF, grayscale, StarDist objects, and {resolved_figure_value_label} by marker",
         fontsize=14,
     )
     for donor_index, donor in enumerate(donor_list):
@@ -154,8 +177,11 @@ def plot_condition_brightness_debug(
         histogram_row = image_row + 1
         for column_index, antibody in enumerate(antibody_list):
             measurement = analysis.get_result(antibody, condition, donor)
-            image = load_grayscale_tif(measurement.path)
-            finite_pixels = image[np.isfinite(image)]
+            original_image = load_tif_image(measurement.path)
+            grayscale_image = load_grayscale_tif(measurement.path)
+            labels, _ = predict_stardist_labels(grayscale_image)
+
+            finite_pixels = grayscale_image[np.isfinite(grayscale_image)]
             if finite_pixels.size:
                 vmin = float(np.percentile(finite_pixels, 1.0))
                 vmax = float(np.percentile(finite_pixels, image_upper_percentile))
@@ -164,17 +190,33 @@ def plot_condition_brightness_debug(
             else:
                 vmin = vmax = None
 
-            image_ax = axes[image_row, column_index]
-            image_ax.imshow(image, cmap="gray", vmin=vmin, vmax=vmax)
-            image_ax.axis("off")
-            image_title = f"{antibody}\n{_wrap_filename(measurement.path.name)}"
+            block_column = column_index * 3
+            original_ax = fig.add_subplot(grid[image_row, block_column])
+            grayscale_ax = fig.add_subplot(grid[image_row, block_column + 1])
+            labels_ax = fig.add_subplot(grid[image_row, block_column + 2])
+
+            original_display_image, original_display_kwargs = _prepare_original_display_image(original_image)
+            original_ax.imshow(original_display_image, **original_display_kwargs)
+            original_ax.axis("off")
+            original_ax.set_title(
+                f"{antibody}: original TIFF\n{_wrap_filename(measurement.path.name)}",
+                fontsize=8,
+            )
+
+            grayscale_ax.imshow(grayscale_image, cmap="gray", vmin=vmin, vmax=vmax)
+            grayscale_ax.axis("off")
+            image_title = "Grayscale used for StarDist"
             if show_background and measurement.background_intensity is not None:
                 image_title = f"{image_title}\nbackground={measurement.background_intensity:.2f}"
-            image_ax.set_title(image_title, fontsize=7)
+            grayscale_ax.set_title(image_title, fontsize=8)
+
+            labels_ax.imshow(render_label(labels, img=grayscale_image))
+            labels_ax.axis("off")
+            labels_ax.set_title(f"StarDist objects\nn={measurement.cell_count}", fontsize=8)
 
             values = np.asarray(measurement.measurement_values, dtype=float)
             values = values[np.isfinite(values)]
-            histogram_ax = axes[histogram_row, column_index]
+            histogram_ax = fig.add_subplot(grid[histogram_row, block_column:block_column + 3])
             lower, upper = histogram_limits[antibody]
             bins = np.linspace(lower, upper, histogram_bins + 1)
             if values.size:
@@ -212,6 +254,8 @@ def plot_condition_relative_background_debug(
     image_upper_percentile: float = 99.8,
     histogram_upper_percentile: float = 99.5,
     histogram_bins: int = 40,
+    figure_width_per_marker: float = 10.0,
+    figure_height_per_donor: float = 5.5,
 ) -> None:
     plot_condition_brightness_debug(
         analysis,
@@ -221,6 +265,8 @@ def plot_condition_relative_background_debug(
         image_upper_percentile=image_upper_percentile,
         histogram_upper_percentile=histogram_upper_percentile,
         histogram_bins=histogram_bins,
+        figure_width_per_marker=figure_width_per_marker,
+        figure_height_per_donor=figure_height_per_donor,
         value_label="Cell signal / image background",
         figure_value_label="per-cell signal/background ratio",
         show_background=True,

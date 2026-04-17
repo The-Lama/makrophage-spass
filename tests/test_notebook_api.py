@@ -15,6 +15,7 @@ class NotebookApiTests(unittest.TestCase):
         self.assertIn("extract_single_cell_fluorescence", public_names)
         self.assertIn("plot_summary_heatmap", public_names)
         self.assertIn("display_stat_summary_tables", public_names)
+        self.assertIn("plot_distributions_with_stats", public_names)
 
         self.assertNotIn("BatchAnalysis", public_names)
         self.assertNotIn("find_image_path", public_names)
@@ -23,6 +24,7 @@ class NotebookApiTests(unittest.TestCase):
         self.assertNotIn("build_morphology_fold_change_table", public_names)
         self.assertNotIn("plot_morphology_scatter", public_names)
         self.assertNotIn("sort_microscopy_images", public_names)
+        self.assertNotIn("plot_violins_with_stats", public_names)
 
     def test_notebook_default_export_resolves(self) -> None:
         donors = ma.DEFAULT_DONORS

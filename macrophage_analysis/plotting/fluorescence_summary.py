@@ -29,6 +29,84 @@ from .tables import display_stat_summary_tables as _display_stat_summary_tables
 from .utils import build_heatmap_annotation_labels
 
 
+def _validate_distribution_plot_kind(plot_kind: str) -> str:
+    if plot_kind not in {"violin", "bar"}:
+        raise ValueError("plot_kind must be 'violin' or 'bar'")
+    return plot_kind
+
+
+def _validate_summary_stat(summary_stat: str) -> str:
+    if summary_stat not in {"median", "mean"}:
+        raise ValueError("summary_stat must be 'median' or 'mean'")
+    return summary_stat
+
+
+def _plot_distribution_summary(
+    plot_df: pd.DataFrame,
+    *,
+    plot_kind: str,
+    summary_stat: str,
+    analysis: BatchAnalysis,
+    palette: dict[str, str],
+    ax: plt.Axes,
+) -> None:
+    if plot_kind == "violin":
+        sns.violinplot(
+            data=plot_df,
+            x="condition",
+            y="intensity",
+            hue="donor",
+            order=analysis.conditions,
+            hue_order=analysis.donors,
+            palette=palette,
+            cut=0,
+            inner="quart",
+            linewidth=1.0,
+            dodge=True,
+            ax=ax,
+        )
+        return
+
+    estimator = np.median if summary_stat == "median" else np.mean
+    sns.barplot(
+        data=plot_df,
+        x="condition",
+        y="intensity",
+        hue="donor",
+        order=analysis.conditions,
+        hue_order=analysis.donors,
+        palette=palette,
+        estimator=estimator,
+        errorbar=None,
+        dodge=True,
+        ax=ax,
+    )
+
+
+def _plot_distribution_points(
+    sample_df: pd.DataFrame,
+    *,
+    analysis: BatchAnalysis,
+    palette: dict[str, str],
+    ax: plt.Axes,
+) -> None:
+    sns.stripplot(
+        data=sample_df,
+        x="condition",
+        y="intensity",
+        hue="donor",
+        order=analysis.conditions,
+        hue_order=analysis.donors,
+        palette=palette,
+        dodge=True,
+        jitter=0.16,
+        alpha=0.18,
+        size=2.5,
+        linewidth=0,
+        ax=ax,
+    )
+
+
 def display_stat_summary_tables(
     stat_table: pd.DataFrame,
     *,
@@ -46,9 +124,12 @@ def display_stat_summary_tables(
     )
 
 
-def plot_violins_with_stats(
+def plot_distributions_with_stats(
     analysis: BatchAnalysis,
     *,
+    plot_kind: str = "violin",
+    summary_stat: str = "median",
+    show_points: bool | None = None,
     max_strip_points: int = 250,
     plot_log_scale: bool = False,
     min_positive_intensity: float | None = None,
@@ -57,6 +138,13 @@ def plot_violins_with_stats(
     y_label: str | None = None,
     title_value_label: str | None = None,
 ) -> pd.DataFrame:
+    resolved_plot_kind = _validate_distribution_plot_kind(plot_kind)
+    resolved_summary_stat = (
+        _validate_summary_stat(summary_stat)
+        if resolved_plot_kind == "bar"
+        else summary_stat
+    )
+    resolved_show_points = show_points if show_points is not None else resolved_plot_kind == "violin"
     sns.set_theme(**DEFAULT_SEABORN_THEME)
     palette = {donor: analysis.donor_colors[donor] for donor in analysis.donors}
     resolved_y_label = y_label or default_measurement_axis_label(analysis.measurement_scale)
@@ -78,35 +166,21 @@ def plot_violins_with_stats(
         if plot_df.empty:
             raise ValueError(f"No valid intensities available for {antibody}")
         fig, ax = plt.subplots(figsize=(14, 7), constrained_layout=True)
-        sns.violinplot(
-            data=plot_df,
-            x="condition",
-            y="intensity",
-            hue="donor",
-            order=analysis.conditions,
-            hue_order=analysis.donors,
+        _plot_distribution_summary(
+            plot_df,
+            plot_kind=resolved_plot_kind,
+            summary_stat=resolved_summary_stat,
+            analysis=analysis,
             palette=palette,
-            cut=0,
-            inner="quart",
-            linewidth=1.0,
-            dodge=True,
             ax=ax,
         )
-        sns.stripplot(
-            data=sample_df,
-            x="condition",
-            y="intensity",
-            hue="donor",
-            order=analysis.conditions,
-            hue_order=analysis.donors,
-            palette=palette,
-            dodge=True,
-            jitter=0.16,
-            alpha=0.18,
-            size=2.5,
-            linewidth=0,
-            ax=ax,
-        )
+        if resolved_show_points:
+            _plot_distribution_points(
+                sample_df,
+                analysis=analysis,
+                palette=palette,
+                ax=ax,
+            )
         _deduplicate_legend(ax, analysis.donors)
         if not 0 < upper_display_percentile <= 100:
             raise ValueError("upper_display_percentile must be between 0 and 100")
@@ -122,7 +196,12 @@ def plot_violins_with_stats(
             ax.set_ylim(bottom=log_lower_bound, top=display_max * 2.2)
         else:
             ax.set_ylim(bottom=0, top=display_max * 1.15)
-        ax.set_title(f"{antibody} {resolved_title_value_label} by treatment")
+        plot_label = (
+            f"{resolved_summary_stat} bar"
+            if resolved_plot_kind == "bar"
+            else "violin"
+        )
+        ax.set_title(f"{antibody} {resolved_title_value_label} by treatment ({plot_label})")
         ax.set_xlabel("Treatment")
         ax.set_ylabel(resolved_y_label + (" (log scale)" if plot_log_scale else ""))
         plt.setp(ax.get_xticklabels(), rotation=30, ha="right")

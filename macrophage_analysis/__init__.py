@@ -43,8 +43,8 @@ _NOTEBOOK_EXPORT_GROUPS: tuple[tuple[str, tuple[str, ...]], ...] = (
     (
         ".plotting.fluorescence_summary",
         (
+            "plot_distributions_with_stats",
             "plot_summary_heatmap",
-            "plot_violins_with_stats",
         ),
     ),
     (

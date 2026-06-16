@@ -3,7 +3,11 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.gpu
-    gpus: all
+    gpus:
+      - driver: nvidia
+        count: all
+        capabilities:
+          - gpu
     environment:
       CUDA_VISIBLE_DEVICES: "0"
       NVIDIA_VISIBLE_DEVICES: all

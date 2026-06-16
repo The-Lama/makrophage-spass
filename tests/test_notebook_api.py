@@ -28,7 +28,7 @@ class NotebookApiTests(unittest.TestCase):
 
     def test_notebook_default_export_resolves(self) -> None:
         donors = ma.DEFAULT_DONORS
-        self.assertEqual(tuple(donors), ("D45", "D47"))
+        self.assertEqual(tuple(donors), ("D39", "D43"))
 
     def test_non_notebook_export_is_not_available_top_level(self) -> None:
         with self.assertRaises(AttributeError):
@@ -36,9 +36,8 @@ class NotebookApiTests(unittest.TestCase):
 
     def test_notebooks_only_use_notebook_facing_top_level_names(self) -> None:
         notebook_api = set(ma.__all__)
-        notebook_paths = sorted(
-            Path("/home/alex/projects/makrophage-spass/notebooks").glob("*.ipynb")
-        )
+        project_root = Path(__file__).resolve().parents[1]
+        notebook_paths = sorted((project_root / "notebooks").glob("*.ipynb"))
         used_names: dict[str, set[str]] = {}
         for notebook_path in notebook_paths:
             names = set(

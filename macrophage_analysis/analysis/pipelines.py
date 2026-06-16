@@ -181,7 +181,12 @@ def _run_batch_analysis(
             message = f"Analyzing {current_antibody}"
             if relative_to_background:
                 message += " relative to image background"
-            print(f"{message}...")
+            print(f"{message}...", flush=True)
+
+        print(
+            f"  {request.donor}/{request.condition}: {request.path.name}",
+            flush=True,
+        )
 
         image, labels, mean_intensities, areas, eccentricities, solidities = _segment_and_measure_image(
             request.path,
@@ -211,7 +216,10 @@ def _run_batch_analysis(
             background_percentile=background_percentile if relative_to_background else None,
         )
 
-    print(f"Finished analyzing {len(results)} donor / treatment / antibody combinations.")
+    print(
+        f"Finished analyzing {len(results)} donor / treatment / antibody combinations.",
+        flush=True,
+    )
     return BatchAnalysis(
         donors=donor_list,
         conditions=condition_list,

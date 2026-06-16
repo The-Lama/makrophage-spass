@@ -7,12 +7,16 @@ from pathlib import Path
 
 import numpy as np
 import tifffile as tiff
-from csbdeep.utils import normalize
 from skimage.measure import regionprops_table
 from stardist.models import StarDist2D
 
 from ..defaults import DEFAULT_DATA_ROOT
 from ..io.catalog import build_image_catalog
+
+
+_STARDIST_LOWER_PERCENTILE = 1.0
+_STARDIST_UPPER_PERCENTILE = 99.8
+_STARDIST_UPPER_PERCENTILE_FALLBACKS = (99.9, 99.95, 99.99, 99.995, 99.999, 100.0)
 
 
 @lru_cache(maxsize=1)
@@ -64,6 +68,26 @@ def load_grayscale_tif(image_path: str | Path) -> np.ndarray:
     return image
 
 
+def normalize_stardist_input(image: np.ndarray) -> np.ndarray:
+    image_array = np.asarray(image, dtype=np.float32)
+    finite_pixels = image_array[np.isfinite(image_array)]
+    if finite_pixels.size == 0:
+        return np.zeros(image_array.shape, dtype=np.float32)
+
+    lower_value = float(np.percentile(finite_pixels, _STARDIST_LOWER_PERCENTILE))
+    upper_value = float(np.percentile(finite_pixels, _STARDIST_UPPER_PERCENTILE))
+    if upper_value <= lower_value:
+        for fallback_percentile in _STARDIST_UPPER_PERCENTILE_FALLBACKS:
+            upper_value = float(np.percentile(finite_pixels, fallback_percentile))
+            if upper_value > lower_value:
+                break
+
+    if upper_value <= lower_value:
+        return np.zeros(image_array.shape, dtype=np.float32)
+
+    return (image_array - lower_value) / (upper_value - lower_value)
+
+
 def predict_stardist_labels(
     image: np.ndarray,
     *,
@@ -71,7 +95,7 @@ def predict_stardist_labels(
     n_tiles: tuple[int, int] | None = None,
 ) -> tuple[np.ndarray, dict]:
     model = load_stardist_model(model_name)
-    normalized_image = normalize(image, 1, 99.8, axis=(0, 1))
+    normalized_image = normalize_stardist_input(image)
     return model.predict_instances(normalized_image, n_tiles=n_tiles)
 
 

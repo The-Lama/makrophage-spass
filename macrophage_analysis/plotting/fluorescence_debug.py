@@ -5,7 +5,6 @@ from typing import Iterable
 import matplotlib.pyplot as plt
 import numpy as np
 import seaborn as sns
-from stardist.plot import render_label
 
 from ..analysis.extraction import (
     load_grayscale_tif,
@@ -25,6 +24,59 @@ from ..models import BatchAnalysis, ConditionComparison
 from ._shared import _wrap_filename
 
 
+_LABEL_PALETTE = np.asarray(
+    [
+        (0.121, 0.466, 0.705),
+        (1.000, 0.498, 0.054),
+        (0.172, 0.627, 0.172),
+        (0.839, 0.153, 0.157),
+        (0.580, 0.404, 0.741),
+        (0.549, 0.337, 0.294),
+        (0.890, 0.467, 0.761),
+        (0.498, 0.498, 0.498),
+        (0.737, 0.741, 0.133),
+        (0.090, 0.745, 0.811),
+    ],
+    dtype=float,
+)
+
+
+def _prepare_grayscale_display_image(image: np.ndarray) -> np.ndarray:
+    display_image = np.asarray(image, dtype=float)
+    while display_image.ndim > 2:
+        if display_image.ndim == 3 and display_image.shape[-1] in (1, 3, 4):
+            display_image = display_image[..., 0]
+        else:
+            display_image = display_image[0]
+
+    finite_pixels = display_image[np.isfinite(display_image)]
+    if finite_pixels.size == 0:
+        return np.zeros(display_image.shape, dtype=float)
+
+    vmin = float(np.percentile(finite_pixels, 1.0))
+    vmax = float(np.percentile(finite_pixels, 99.8))
+    if not np.isfinite(vmax) or vmax <= vmin:
+        vmin = float(finite_pixels.min())
+        vmax = float(finite_pixels.max())
+    if not np.isfinite(vmax) or vmax <= vmin:
+        return np.zeros(display_image.shape, dtype=float)
+
+    return np.clip((display_image - vmin) / (vmax - vmin), 0.0, 1.0)
+
+
+def _render_label_overlay(labels: np.ndarray, image: np.ndarray, *, alpha: float = 0.42) -> np.ndarray:
+    base_gray = _prepare_grayscale_display_image(image)
+    overlay = np.repeat(base_gray[..., None], 3, axis=-1)
+    label_array = np.asarray(labels)
+    mask = label_array > 0
+    if not np.any(mask):
+        return overlay
+
+    colors = _LABEL_PALETTE[label_array[mask] % len(_LABEL_PALETTE)]
+    overlay[mask] = (1.0 - alpha) * overlay[mask] + alpha * colors
+    return overlay
+
+
 def plot_condition_comparison(comparison: ConditionComparison) -> None:
     fig, axes = plt.subplots(nrows=len(comparison.donors), ncols=2, figsize=(14, 5 * len(comparison.donors)))
     axes = np.atleast_2d(axes)
@@ -34,7 +86,7 @@ def plot_condition_comparison(comparison: ConditionComparison) -> None:
         axes[row, 0].imshow(result.image, cmap="gray")
         axes[row, 0].axis("off")
         axes[row, 0].set_title(_wrap_filename(result.path.name, width=52), fontsize=9)
-        axes[row, 1].imshow(render_label(result.labels, img=result.image))
+        axes[row, 1].imshow(_render_label_overlay(result.labels, result.image))
         axes[row, 1].axis("off")
         axes[row, 1].set_title(f"{donor} detected: {result.cell_count} cells")
     plt.tight_layout(rect=(0, 0, 1, 0.97))
@@ -210,7 +262,7 @@ def plot_condition_brightness_debug(
                 image_title = f"{image_title}\nbackground={measurement.background_intensity:.2f}"
             grayscale_ax.set_title(image_title, fontsize=8)
 
-            labels_ax.imshow(render_label(labels, img=grayscale_image))
+            labels_ax.imshow(_render_label_overlay(labels, grayscale_image))
             labels_ax.axis("off")
             labels_ax.set_title(f"StarDist objects\nn={measurement.cell_count}", fontsize=8)
 
